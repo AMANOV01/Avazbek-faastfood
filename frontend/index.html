@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Sahifa chizilishidan oldin mavzuni qo'llaymiz (yaltirab ketmasligi uchun)
+      try {
+        document.documentElement.setAttribute(
+          'data-theme',
+          localStorage.getItem('avz_theme') === 'light' ? 'light' : 'dark'
+        );
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    </script>
+    <title>AVAZBEK LAVASH — Hot Doglari</title>
+    <meta name="description" content="AVAZBEK LAVASH: lavash, donar, hot dog, haggi, choy, kofe va muzqaymoq. Tez va mazali." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
