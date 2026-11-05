@@ -1,55 +1,39 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
-import { api, money } from '../api';
-import AppIcon from '../components/AppIcon.vue';
+import { useOrdersStore } from '../stores/orders';
+import OrderCard from '../components/OrderCard.vue';
+import NotifyPrompt from '../components/NotifyPrompt.vue';
 
 const props = defineProps({ id: { type: String, required: true } });
-const order = ref(null);
-const error = ref('');
-let timer;
+const orders = useOrdersStore();
 
-const LABELS = {
-  new: ['Qabul qilindi', 'clock'],
-  cooking: ['Tayyorlanmoqda', 'fire'],
-  delivering: ['Yo\'lda', 'delivery'],
-  done: ['Yakunlandi', 'check'],
-  cancelled: ['Bekor qilindi', 'close'],
-};
-
-async function refresh() {
-  try {
-    order.value = await api.orderStatus(props.id);
-    error.value = '';
-    if (['done', 'cancelled'].includes(order.value.status)) clearInterval(timer);
-  } catch (e) {
-    error.value = e.message;
-  }
-}
-
-onMounted(() => {
-  refresh();
-  timer = setInterval(refresh, 10000);
-});
-onUnmounted(() => clearInterval(timer));
+const mine = computed(() => orders.mine.some((m) => m.id === Number(props.id)));
+const order = computed(() => orders.data[Number(props.id)]);
+onMounted(() => orders.refresh());
 </script>
 
 <template>
   <div class="container narrow">
-    <h1 class="section-title">Buyurtma #{{ id }}</h1>
-    <p v-if="error" class="error">{{ error }}</p>
-    <div v-if="order" class="card center">
-      <div class="big" :class="order.status"><AppIcon :name="LABELS[order.status][1]" :size="64" /></div>
-      <h2>{{ LABELS[order.status][0] }}</h2>
-      <p class="price">{{ money(order.total) }} so'm</p>
-      <p class="muted">Holat har 10 soniyada yangilanadi. Savollar bo'lsa: 97 212 03 93</p>
-      <br />
-      <RouterLink to="/menu" class="btn ghost">Yana buyurtma</RouterLink>
+    <h1 class="section-title">{{ $t('order.title', { id }) }}</h1>
+
+    <template v-if="order && mine">
+      <NotifyPrompt />
+      <OrderCard :order="order" />
+      <p class="muted center help">{{ $t('orders.auto') }} · {{ $t('order.help', { phone: '97 212 03 93' }) }}</p>
+    </template>
+    <div v-else-if="!orders.ready && mine" class="card center muted">{{ $t('common.loading') }}</div>
+    <div v-else class="card center"><p class="muted">{{ $t('order.notFound') }}</p></div>
+
+    <div class="actions">
+      <RouterLink to="/orders" class="btn ghost">{{ $t('order.all') }}</RouterLink>
+      <RouterLink to="/menu" class="btn">{{ $t('order.more') }}</RouterLink>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
-.narrow { max-width: 520px; }
-.big { color: var(--green-bright); margin-bottom: 8px; &.cancelled { color: var(--danger); } }
+.narrow { max-width: 560px; }
+.help { margin-top: 14px; font-size: 0.9rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; }
 </style>
