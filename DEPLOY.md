@@ -26,7 +26,7 @@ Serverda:
 cd /root && unzip avazbek-lavash.zip
 cd avazbek-lavash/frontend && npm install && npm run build
 cd ../backend && npm install
-ADMIN_PASSWORD="o'zingizning_kuchli_parolingiz" PORT=4000 pm2 start src/server.js --name avazbek
+DATABASE_URL="postgresql://..." ADMIN_PASSWORD="o'zingizning_kuchli_parolingiz" PORT=4000 pm2 start src/server.js --name avazbek
 pm2 save && pm2 startup
 ```
 
@@ -70,6 +70,6 @@ flutter build apk --dart-define=API_BASE=https://avazbek.uz
 (HTTPS bo'lgani uchun `usesCleartextTraffic` kerak emas.)
 
 ## Muhim
-- Ma'lumotlar `backend/data/db.json` faylida. Uni vaqti-vaqti bilan nusxalab turing (zaxira).
+- Ma'lumotlar PostgreSQL'da (`DATABASE_URL`). Vaqti-vaqti bilan `pg_dump "$DATABASE_URL" > zaxira.sql` qilib zaxira oling.
 - Admin parolini albatta almashtiring (3-qadamdagi `ADMIN_PASSWORD`).
 - Saytni yangilash: yangi fayllarni yuklab, `frontend` da `npm run build`, keyin `pm2 restart avazbek`.

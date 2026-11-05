@@ -40,7 +40,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
@@ -49,7 +49,10 @@ body {
     var(--bg);
   color: var(--text);
   min-height: 100vh;
+  min-height: 100dvh;
   line-height: 1.5;
+  overflow-x: hidden;           // hech qaysi qurilmada yon tomonga siljimasin
+  -webkit-tap-highlight-color: transparent;
   transition: background-color 0.25s, color 0.25s;
 }
 
@@ -64,7 +67,11 @@ a { color: inherit; text-decoration: none; }
 button { font: inherit; cursor: pointer; }
 img { max-width: 100%; display: block; }
 
-.container { width: min(1120px, 100% - 32px); margin-inline: auto; }
+.container {
+  width: min(1120px, 100% - 32px); margin-inline: auto;
+  @media (min-width: 1440px) { width: min(1280px, 100% - 64px); }
+  @media (max-width: 380px) { width: calc(100% - 24px); }
+}
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -80,8 +87,9 @@ img { max-width: 100%; display: block; }
     background: transparent; color: var(--green-bright); border-color: var(--green);
     &:hover { background: var(--glow); color: var(--green-bright); }
   }
-  &.small { padding: 6px 12px; border-radius: 8px; font-size: 0.9rem; }
+  &.small { padding: 6px 12px; border-radius: 8px; font-size: 0.9rem; min-height: 36px; }
   &.icon { padding: 6px 9px; }
+  @media (pointer: coarse) { &.small { min-height: 42px; padding-inline: 14px; } &.icon { min-width: 42px; } }
 }
 
 :root[data-theme='dark'] .btn:hover:not(.ghost),
@@ -89,7 +97,7 @@ img { max-width: 100%; display: block; }
 
 .section-title {
   display: flex; align-items: center; gap: 16px;
-  font-size: 1.9rem; color: var(--green-bright);
+  font-size: clamp(1.45rem, 5vw, 1.9rem); color: var(--green-bright);
   margin-block: 36px 16px;
 
   &::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--green), transparent); }
@@ -99,6 +107,7 @@ img { max-width: 100%; display: block; }
 
 .card {
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px;
+  @media (max-width: 480px) { padding: 14px; }
   transition: background-color 0.25s, border-color 0.25s;
 }
 
@@ -107,7 +116,8 @@ img { max-width: 100%; display: block; }
   label { color: var(--muted); font-size: 0.9rem; }
   input, textarea, select {
     background: var(--input-bg); color: var(--text); border: 1px solid var(--line);
-    border-radius: 10px; padding: 12px; font: inherit;
+    border-radius: 10px; padding: 12px; font: inherit; width: 100%; min-width: 0;
+    @media (max-width: 760px) { font-size: 16px; }   // iPhone yaqinlashtirib yubormasligi uchun
     &:focus { outline: none; border-color: var(--green); }
   }
 }
@@ -115,3 +125,7 @@ img { max-width: 100%; display: block; }
 .error { color: var(--danger); margin-block: 8px; }
 .muted { color: var(--muted); }
 .center { text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
