@@ -62,3 +62,17 @@ va boshlang'ich menyu bir marta yoziladi.
 3. Kompyuteringizda sinash: `DATABASE_URL='postgresql://...' npm start` (backend papkasida).
 
 Zaxira nusxa: `pg_dump "$DATABASE_URL" > zaxira.sql`.
+
+## v5 yangiliklari
+- **Xaritadan lokatsiya**: yetkazib berishda manzil qo'lda yozilmaydi — mijoz xaritada joyni bosadi/pinni suradi yoki **"Men turgan joy"** tugmasini bosadi (brauzer joylashuvga ruxsat so'raydi; HTTPS kerak). Xarita — OpenStreetMap + Leaflet (kalit/to'lov kerak emas). Admin buyurtmada "Xaritada ochish" havolasini ko'radi. Xarita boshlang'ich markazi: `backend/src/menu.js` → `brand.mapCenter` (hozir Toshkent).
+- **Kun/tun rejimi**: tepadagi quyosh/oy tugmasi. Kunduzgi dizayn menyu rasmiga mos (och ko'k-oq, to'q ko'k, qizil). Kunduzgi mahsulot rasmlarini `frontend/public/images/day/` ga qo'ying (`lavash.jpg, donar.jpg, hotdog.jpg, haggi.jpg, choy.jpg, kofe.jpg, muzqaymoq.jpg`) — kun rejimida shular chiqadi, bo'lmasa tungilari.
+- **Promokod**: admin → "Promokodlar" bo'limida yaratiladi (foiz yoki summa, minimal buyurtma, tugash sanasi, jami ishlatish limiti). Har bir telefon raqam bitta promokodni faqat **bir marta** ishlata oladi; limitga 1 yozilsa, kod birinchi ishlatilgandan keyin hamma uchun o'chadi. Chegirma mahsulotlar summasiga qo'llanadi.
+- **To'lov usuli oynasi**: "Buyurtma berish" bosilgach alohida oynada Naxd / Karta tanlanadi. Karta tanlansa do'kon kartasi (raqam, egasi, nusxalash tugmasi) darhol chiqadi; mijoz o'tkazgach "To'lov qildim" ni bosadi. Shundagina buyurtma "To'lov tekshirilmoqda" holatida yaratiladi va adminga bildirishnoma boradi. Admin pul kartaga tushganini ko'rib "To'lov tushdi, tayyorlash" ni bosmaguncha buyurtma oshxonaga o'tmaydi. Karta raqami: admin → **Sozlamalar**. Raqam kiritilmasa, karta tanlovi o'chiq turadi. (Click/Payme avtomatik tekshiruvi ulanmagan.)
+- Baza jadvallari (`promo_codes`, `promo_code_uses`, `orders` yangi ustunlar) server ishga tushganda o'zi qo'shiladi.
+
+## v7 yangiliklari
+- **To'lov kartalari**: admin → Sozlamalar. Istalgancha karta qo'shish/tahrirlash/o'chirish mumkin, bittasi "Faol" bo'ladi va mijozga shu ko'rsatiladi. Kartani almashtirish uchun boshqasini faol qilib saqlang. Har bir buyurtmada qaysi kartaga (oxirgi 4 raqam) to'langani saqlanadi.
+- **Dizayn**: yangi bosh sahifa (katta sarlavha, ustma-ust rasmlar, afzalliklar), rangli kategoriya kartalari, kontakt kartalari, yumshoqroq soyalar, tugma va maydonlarda aniq fokus, sahifa ochilishida animatsiya.
+
+## v8: Yandex xarita
+`YANDEX_MAPS_KEY` muhit o'zgaruvchisi berilsa, manzil tanlash Yandex Maps'da ishlaydi, aks holda OpenStreetMap. Batafsil: DEPLOY.md.

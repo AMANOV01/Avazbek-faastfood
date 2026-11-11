@@ -10,5 +10,7 @@ services:
         value: 20
       - key: ADMIN_PASSWORD
         sync: false
+      - key: YANDEX_MAPS_KEY   # ixtiyoriy: Yandex xarita kaliti (bo'lmasa OpenStreetMap)
+        sync: false
       - key: DATABASE_URL   # Neon/Supabase ulanish satri
         sync: false

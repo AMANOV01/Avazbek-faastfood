@@ -40,8 +40,8 @@ const unit = computed(() => unitPrice(props.product, qty.value || 1, menu.promos
 </template>
 
 <style scoped lang="scss">
-.row { display: flex; align-items: center; gap: 10px; padding-block: 9px; }
-.thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 10px; background: #000; flex: none; }
+.row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin-inline: -10px; border-radius: 12px; transition: background-color 0.15s; &:hover { background: var(--glow); } }
+.thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 10px; background: var(--img-bg); flex: none; }
 .info { display: flex; flex-direction: column; min-width: 0; }
 .name { overflow-wrap: anywhere; }
 .hint { color: var(--green-bright); font-size: 0.8rem; line-height: 1.3; opacity: 0.85; &.hit { opacity: 1; font-weight: 600; } }
