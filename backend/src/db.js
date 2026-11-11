@@ -77,6 +77,33 @@ create table if not exists orders (
   updated_at timestamptz not null default now()
 );
 create index if not exists orders_created_idx on orders (id desc);
+-- v5: xaritadan belgilangan joy, to'lov usuli, promokod
+alter table orders add column if not exists lat double precision;
+alter table orders add column if not exists lng double precision;
+alter table orders add column if not exists pay_method text not null default 'cash';
+alter table orders add column if not exists pay_card text not null default '';
+alter table orders add column if not exists promo_code text not null default '';
+alter table orders add column if not exists code_discount int not null default 0;
+create table if not exists promo_codes (
+  id serial primary key,
+  code text not null unique,
+  type text not null,
+  value int not null,
+  min_total int not null default 0,
+  max_uses int,
+  used_count int not null default 0,
+  ends_at text not null default '',
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+-- Bitta telefon raqam bitta promokodni faqat bir marta ishlata oladi (unique shuni kafolatlaydi)
+create table if not exists promo_code_uses (
+  code_id int not null references promo_codes(id) on delete cascade,
+  phone text not null,
+  order_id int,
+  created_at timestamptz not null default now(),
+  primary key (code_id, phone)
+);
 create table if not exists settings (key text primary key, value jsonb not null);
 create table if not exists admin_push (endpoint text primary key, sub jsonb not null);
 create table if not exists images (

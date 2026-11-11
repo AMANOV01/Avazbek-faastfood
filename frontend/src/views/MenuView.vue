@@ -3,10 +3,12 @@ import { nextTick, watch } from 'vue';
 import { useRoute, RouterLink } from 'vue-router';
 import { useMenuStore } from '../stores/menu';
 import { useCartStore } from '../stores/cart';
+import { useThemeStore } from '../stores/theme';
 import { money } from '../api';
 import { loc } from '../i18n';
 import ProductRow from '../components/ProductRow.vue';
 
+const theme = useThemeStore();
 const menu = useMenuStore();
 const cart = useCartStore();
 const route = useRoute();
@@ -27,7 +29,7 @@ watch(() => [menu.loaded, route.hash], scrollToHash, { immediate: true });
       <section v-for="c in menu.categories" :id="c.id" :key="c.id" class="cat">
         <template v-if="menu.byCategory(c.id).length">
           <h2 class="section-title">
-            <img :src="`/images/${c.image}.jpg`" :alt="loc(c.names, c.name)" class="thumb" loading="lazy" />
+            <img :src="theme.img(c.image)" :alt="loc(c.names, c.name)" class="thumb" loading="lazy" @error="theme.fallback" />
             {{ loc(c.names, c.name) }}
           </h2>
           <ProductRow v-for="p in menu.byCategory(c.id)" :key="p.id" :product="p" />
@@ -44,7 +46,7 @@ watch(() => [menu.loaded, route.hash], scrollToHash, { immediate: true });
 <style scoped lang="scss">
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 0 48px; }
 .cat { scroll-margin-top: 90px; .section-title { font-size: 1.6rem; margin-top: 28px; } }
-.thumb { height: 54px; width: 72px; object-fit: contain; border-radius: 8px; background: #000; flex: none; }
+.thumb { height: 54px; width: 72px; object-fit: contain; border-radius: 8px; background: var(--img-bg); flex: none; }
 .floating {
   position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 20;
   box-shadow: 0 8px 30px var(--shadow); max-width: calc(100vw - 24px); text-align: center; white-space: nowrap; font-size: 0.95rem;

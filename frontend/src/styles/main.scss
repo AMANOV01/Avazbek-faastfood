@@ -17,26 +17,32 @@
   --glow: rgba(138, 184, 32, 0.12);
   --danger: #ff7b72;
   --shadow: rgba(0, 0, 0, 0.6);
+  --img-bg: #000;            // mahsulot rasmlari orqa foni
 }
 
 :root[data-theme='light'] {
+  // Kunduzgi mavzu — menyu rasmidagi dizayn: och ko'k/oq fon, to'q ko'k logotip, qizil urg'u
   color-scheme: light;
-  --bg: #f6f7f2;
+  --bg: #eef4fb;
   --panel: #ffffff;
-  --line: #dfe3d6;
-  --green: #8ab820;
-  --green-bright: #4f7a0a;
-  --on-green: #0b0c0b;
-  --text: #1a1d17;
-  --muted: #62695a;
+  --line: #d3deec;
+  --green: #1f3a60;          // tugma foni (to'q ko'k)
+  --green-bright: #d9263a;   // urg'u: sarlavha, narx (qizil)
+  --on-green: #ffffff;
+  --text: #172a45;
+  --muted: #5d6f88;
   --input-bg: #ffffff;
-  --header-bg: rgba(246, 247, 242, 0.9);
-  --footer-bg: #eceee4;
-  --dots: #b5baa9;
-  --glow: rgba(138, 184, 32, 0.18);
+  --header-bg: rgba(238, 244, 251, 0.92);
+  --footer-bg: #e1eaf5;
+  --dots: #a9b9cf;
+  --glow: rgba(31, 58, 96, 0.12);
   --danger: #c62828;
-  --shadow: rgba(30, 40, 10, 0.25);
+  --shadow: rgba(23, 42, 69, 0.25);
+  --img-bg: #000;            // tungi rasmlar qora fonli; kunduzgi rasmlar bo'lsa pastda oqarib ketadi
 }
+
+// public/images/day/ ga kunduzgi rasmlar qo'yilganda ularning orqa foni och bo'ladi
+:root[data-theme='light'][data-dayimg='1'] { --img-bg: #f7fafd; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 

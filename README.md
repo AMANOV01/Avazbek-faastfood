@@ -62,3 +62,10 @@ va boshlang'ich menyu bir marta yoziladi.
 3. Kompyuteringizda sinash: `DATABASE_URL='postgresql://...' npm start` (backend papkasida).
 
 Zaxira nusxa: `pg_dump "$DATABASE_URL" > zaxira.sql`.
+
+## v5 yangiliklari
+- **Xaritadan lokatsiya**: yetkazib berishda manzil qo'lda yozilmaydi — mijoz xaritada joyni bosadi/pinni suradi yoki **"Men turgan joy"** tugmasini bosadi (brauzer joylashuvga ruxsat so'raydi; HTTPS kerak). Xarita — OpenStreetMap + Leaflet (kalit/to'lov kerak emas). Admin buyurtmada "Xaritada ochish" havolasini ko'radi. Xarita boshlang'ich markazi: `backend/src/menu.js` → `brand.mapCenter` (hozir Toshkent).
+- **Kun/tun rejimi**: tepadagi quyosh/oy tugmasi. Kunduzgi dizayn menyu rasmiga mos (och ko'k-oq, to'q ko'k, qizil). Kunduzgi mahsulot rasmlarini `frontend/public/images/day/` ga qo'ying (`lavash.jpg, donar.jpg, hotdog.jpg, haggi.jpg, choy.jpg, kofe.jpg, muzqaymoq.jpg`) — kun rejimida shular chiqadi, bo'lmasa tungilari.
+- **Promokod**: admin → "Promokodlar" bo'limida yaratiladi (foiz yoki summa, minimal buyurtma, tugash sanasi, jami ishlatish limiti). Har bir telefon raqam bitta promokodni faqat **bir marta** ishlata oladi; limitga 1 yozilsa, kod birinchi ishlatilgandan keyin hamma uchun o'chadi. Chegirma mahsulotlar summasiga qo'llanadi.
+- **To'lov usuli oynasi**: "Buyurtma berish" bosilgach alohida oynada Naxd / Karta tanlanadi; karta bo'lsa **Uzcard** yoki **Humo**. Tanlov buyurtma bilan saqlanadi va adminda ko'rinadi. (Onlayn to'lov — Click/Payme — ulanmagan: hozircha karta bilan to'lov buyurtma olinganda amalga oshadi.)
+- Baza jadvallari (`promo_codes`, `promo_code_uses`, `orders` yangi ustunlar) server ishga tushganda o'zi qo'shiladi.

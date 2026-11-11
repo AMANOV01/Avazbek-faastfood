@@ -38,7 +38,9 @@ const discount = computed(() => props.order.items.reduce((s, l) => s + ((l.baseP
     </ul>
     <div class="sum" v-if="discount > 0"><span>{{ $t('cart.discount') }}</span><span class="price">−{{ money(discount) }}</span></div>
     <div class="sum" v-if="order.deliveryFee"><span>{{ $t('cart.delivery') }}</span><span class="price">{{ money(order.deliveryFee) }}</span></div>
+    <div class="sum" v-if="order.codeDiscount"><span>{{ $t('code.label') }} {{ order.promoCode }}</span><span class="price">−{{ money(order.codeDiscount) }}</span></div>
     <div class="sum total"><span>{{ $t('cart.total') }}</span><span class="price">{{ money(order.total) }} {{ $t('som') }}</span></div>
+    <div class="sum"><span>{{ $t('pay.title') }}</span><span>{{ order.payMethod === 'card' ? `${$t('pay.card')} · ${order.payCard === 'humo' ? 'Humo' : 'Uzcard'}` : $t('pay.cash') }}</span></div>
   </article>
 </template>
 

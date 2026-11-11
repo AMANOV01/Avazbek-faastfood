@@ -14,7 +14,9 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'avazbek123';
 const DELIVERY_FEE = brand.deliveryFee;
 const STATUSES = ['new', 'cooking', 'delivering', 'done', 'cancelled'];
 const LANGS = ['uz', 'ru', 'en'];
+const PAY_CARDS = ['uzcard', 'humo']; // O'zbekiston kartalari
 
+app.set('trust proxy', 1); // Render orqasida haqiqiy IP
 app.use(cors());
 
 // Express 4 async xatolarni o'zi ushlamaydi — shu o'rama ushlaydi
@@ -46,6 +48,7 @@ const toOrder = (r) => ({
   id: r.id, token: r.token, name: r.name, phone: r.phone, address: r.address, comment: r.comment, type: r.type, lang: r.lang,
   push: r.push, items: r.items, subtotal: r.subtotal, deliveryFee: r.delivery_fee, total: r.total, status: r.status,
   createdAt: iso(r.created_at), updatedAt: iso(r.updated_at),
+  lat: r.lat, lng: r.lng, payMethod: r.pay_method, payCard: r.pay_card, promoCode: r.promo_code, codeDiscount: r.code_discount,
 });
 
 const loadProducts = async (where = '', params = []) =>
@@ -87,21 +90,62 @@ app.get('/api/push/key', (_req, res) => res.json({ key: getPublicKey() }));
 const publicOrder = (o) => ({
   id: o.id, status: o.status, type: o.type, items: o.items, subtotal: o.subtotal,
   deliveryFee: o.deliveryFee, total: o.total, createdAt: o.createdAt, updatedAt: o.updatedAt,
+  payMethod: o.payMethod, payCard: o.payCard, promoCode: o.promoCode, codeDiscount: o.codeDiscount,
 });
 
-app.post('/api/orders', ah(async (req, res) => {
-  const { name, phone, address, comment, type, items, lang, push } = req.body || {};
-  if (!name || !phone) return fail(res, 400, 'name_phone', 'Ism va telefon kerak');
-  if (!Array.isArray(items) || items.length === 0) return fail(res, 400, 'empty_cart', "Savat bo'sh");
-  const delivery = type === 'delivery';
-  if (delivery && !address) return fail(res, 400, 'address', 'Manzil kerak');
+// ---------- Promokodlar ----------
+class Biz extends Error {
+  constructor(status, code, error, extra = {}) {
+    super(error);
+    Object.assign(this, { status, code, extra });
+  }
+}
+const CODE_RE = /^[A-Z0-9_-]{3,20}$/;
+const normCode = (v) => String(v ?? '').trim().toUpperCase();
+// Telefon raqamning oxirgi 9 raqami (+998 94 437 27 85 → 944372785): "mijoz" shu bo'yicha aniqlanadi
+const phoneKey = (p) => {
+  const d = String(p ?? '').replace(/\D/g, '');
+  return d.length >= 9 ? d.slice(-9) : '';
+};
+const codeLive = (c) => c.active && (!c.ends_at || Date.now() <= endOfDay(c.ends_at));
+const codeExhausted = (c) => c.max_uses !== null && c.used_count >= c.max_uses;
 
+function codeDiscount(c, subtotal) {
+  const raw = c.type === 'percent' ? Math.round((subtotal * c.value) / 100 / 100) * 100 : c.value;
+  return Math.max(0, Math.min(subtotal, raw));
+}
+
+// Promokod shu buyurtma uchun yaroqlimi? (xato bo'lsa Biz tashlaydi)
+async function assertCodeUsable(db, c, phoneK, subtotal) {
+  if (!c || !c.active) throw new Biz(400, 'code_invalid', "Promokod topilmadi");
+  if (!codeLive(c)) throw new Biz(400, 'code_expired', 'Promokod muddati tugagan');
+  if (codeExhausted(c)) throw new Biz(400, 'code_used_up', 'Bu promokod allaqachon ishlatilgan');
+  if (!phoneK) throw new Biz(400, 'code_phone', 'Promokod uchun telefon raqamingizni kiriting');
+  if (c.min_total > subtotal) throw new Biz(400, 'code_min', 'Buyurtma summasi yetarli emas', { min: c.min_total });
+  const used = await db.query('select 1 from promo_code_uses where code_id = $1 and phone = $2', [c.id, phoneK]);
+  if (used.rowCount) throw new Biz(400, 'code_used', 'Siz bu promokodni allaqachon ishlatgansiz');
+}
+
+// Oddiy cheklov: bitta IP promokodni ko'p marta taxmin qilib ko'rmasin
+const hits = new Map();
+const rateLimit = (max, windowMs) => (req, res, next) => {
+  const now = Date.now();
+  const rec = hits.get(req.ip);
+  if (!rec || rec.reset < now) hits.set(req.ip, { n: 1, reset: now + windowMs });
+  else if (++rec.n > max) return fail(res, 429, 'too_many', "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring");
+  if (hits.size > 5000) for (const [k, v] of hits) if (v.reset < now) hits.delete(k);
+  next();
+};
+
+// Savatdagi mahsulotlar → narxlangan qatorlar (aksiya server tomonda hisoblanadi)
+async function priceLines(items) {
+  if (!Array.isArray(items) || items.length === 0) throw new Biz(400, 'empty_cart', "Savat bo'sh");
   // Bir xil mahsulot ikki marta kelsa qo'shib yuboramiz
   const qtys = new Map();
   for (const it of items) {
     const id = Number(it?.productId);
     const qty = Math.floor(Number(it?.qty));
-    if (!Number.isInteger(id) || !(qty > 0)) return fail(res, 400, 'bad_item', "Noto'g'ri mahsulot yoki miqdor");
+    if (!Number.isInteger(id) || !(qty > 0)) throw new Biz(400, 'bad_item', "Noto'g'ri mahsulot yoki miqdor");
     qtys.set(id, (qtys.get(id) || 0) + qty);
   }
   const products = await loadProducts('where available and id = any($1)', [[...qtys.keys()]]);
@@ -109,30 +153,90 @@ app.post('/api/orders', ah(async (req, res) => {
   const lines = [];
   for (const [id, qty] of qtys) {
     const p = products.find((x) => x.id === id);
-    if (!p || qty > 50) return fail(res, 400, 'bad_item', "Noto'g'ri mahsulot yoki miqdor");
+    if (!p || qty > 50) throw new Biz(400, 'bad_item', "Noto'g'ri mahsulot yoki miqdor");
     lines.push({ productId: p.id, name: p.name, names: p.names, price: unitPrice(p, qty, promos), basePrice: p.price, qty });
   }
-  const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
+  return { lines, subtotal: lines.reduce((s, l) => s + l.price * l.qty, 0) };
+}
+
+// Mijoz promokodni qo'llashdan oldin tekshirib ko'radi (hali ishlatilmaydi)
+app.post('/api/promo-codes/check', rateLimit(40, 10 * 60_000), ah(async (req, res) => {
+  const { subtotal } = await priceLines(req.body?.items);
+  const { rows } = await q('select * from promo_codes where code = $1', [normCode(req.body?.code)]);
+  await assertCodeUsable({ query: q }, rows[0], phoneKey(req.body?.phone), subtotal);
+  const c = rows[0];
+  res.json({ code: c.code, type: c.type, value: c.value, discount: codeDiscount(c, subtotal) });
+}));
+
+app.post('/api/orders', rateLimit(60, 10 * 60_000), ah(async (req, res) => {
+  const { name, phone, address, comment, type, items, lang, push, lat, lng, payMethod, payCard, promoCode } = req.body || {};
+  if (!name || !phone) return fail(res, 400, 'name_phone', 'Ism va telefon kerak');
+  const delivery = type === 'delivery';
+
+  // Yetkazib berishda manzil xaritadan belgilanadi: koordinatalar shart (O'zbekiston hududida)
+  const la = Number(lat);
+  const ln = Number(lng);
+  if (delivery && !(Number.isFinite(la) && Number.isFinite(ln) && la >= 37 && la <= 46 && ln >= 55 && ln <= 74)) {
+    return fail(res, 400, 'location', 'Xaritadan manzilni belgilang');
+  }
+  if (!['cash', 'card'].includes(payMethod)) return fail(res, 400, 'bad_pay', "To'lov usulini tanlang");
+  if (payMethod === 'card' && !PAY_CARDS.includes(payCard)) return fail(res, 400, 'bad_pay', "Karta turini tanlang");
+
+  const { lines, subtotal } = await priceLines(items);
   const fee = delivery ? DELIVERY_FEE : 0;
-  const { rows } = await q(
-    `insert into orders(token, name, phone, address, comment, type, lang, push, items, subtotal, delivery_fee, total)
-     values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12) returning *`,
-    [
-      crypto.randomBytes(12).toString('hex'),
-      String(name).slice(0, 80),
-      String(phone).slice(0, 30),
-      delivery ? String(address).slice(0, 200) : '',
-      String(comment || '').slice(0, 300),
-      delivery ? 'delivery' : 'pickup',
-      LANGS.includes(lang) ? lang : 'uz',
-      JSON.stringify(cleanSub(push)),
-      JSON.stringify(lines),
-      subtotal,
-      fee,
-      subtotal + fee,
-    ]
-  );
-  const order = toOrder(rows[0]);
+  const codeText = normCode(promoCode);
+
+  const client = await pool.connect();
+  let order;
+  try {
+    await client.query('begin');
+    let discount = 0;
+    let usedCode = '';
+    if (codeText) {
+      // for update: bir vaqtda ikki kishi oxirgi ishlatilishni olib ketmasin
+      const { rows } = await client.query('select * from promo_codes where code = $1 for update', [codeText]);
+      const c = rows[0];
+      await assertCodeUsable(client, c, phoneKey(phone), subtotal);
+      discount = codeDiscount(c, subtotal);
+      usedCode = c.code;
+      await client.query('insert into promo_code_uses(code_id, phone) values($1,$2)', [c.id, phoneKey(phone)]);
+      await client.query('update promo_codes set used_count = used_count + 1 where id = $1', [c.id]);
+    }
+    const addr = delivery ? String(address || '').trim().slice(0, 200) || `${la.toFixed(5)}, ${ln.toFixed(5)}` : '';
+    const ins = await client.query(
+      `insert into orders(token, name, phone, address, comment, type, lang, push, items, subtotal, delivery_fee, total,
+                          lat, lng, pay_method, pay_card, promo_code, code_discount)
+       values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18) returning *`,
+      [
+        crypto.randomBytes(12).toString('hex'),
+        String(name).slice(0, 80),
+        String(phone).slice(0, 30),
+        addr,
+        String(comment || '').slice(0, 300),
+        delivery ? 'delivery' : 'pickup',
+        LANGS.includes(lang) ? lang : 'uz',
+        JSON.stringify(cleanSub(push)),
+        JSON.stringify(lines),
+        subtotal,
+        fee,
+        subtotal - discount + fee,
+        delivery ? la : null,
+        delivery ? ln : null,
+        payMethod,
+        payMethod === 'card' ? payCard : '',
+        usedCode,
+        discount,
+      ]
+    );
+    order = toOrder(ins.rows[0]);
+    if (usedCode) await client.query('update promo_code_uses set order_id = $2 where code_id = (select id from promo_codes where code = $3) and phone = $1', [phoneKey(phone), order.id, usedCode]);
+    await client.query('commit');
+  } catch (e) {
+    await client.query('rollback').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 
   notifyAdmins({
     title: `🛎 Yangi buyurtma #${order.id}`,
@@ -373,6 +477,65 @@ app.delete('/api/admin/promos/:id', adminOnly, ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// --- Promokodlar (admin) ---
+const toCode = (r) => ({
+  id: r.id, code: r.code, type: r.type, value: r.value, minTotal: r.min_total, maxUses: r.max_uses,
+  usedCount: r.used_count, endsAt: r.ends_at, active: r.active, createdAt: iso(r.created_at),
+  live: codeLive(r) && !codeExhausted(r),
+});
+const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // o/0, i/1 kabi adashtiradigan belgilarsiz
+const randomCode = () => Array.from(crypto.randomBytes(7), (b) => ALPHABET[b % ALPHABET.length]).join('');
+
+function readCode(b) {
+  const type = b.type;
+  const value = Math.round(Number(b.value));
+  if (!['percent', 'amount'].includes(type) || !(value >= 1) || (type === 'percent' && value > 90) || value > 100_000_000) {
+    throw new Biz(400, 'bad_promo', "Chegirma noto'g'ri");
+  }
+  const minTotal = b.minTotal === '' || b.minTotal == null ? 0 : Math.round(Number(b.minTotal));
+  if (!(minTotal >= 0) || minTotal > 100_000_000) throw new Biz(400, 'bad_promo', "Chegirma noto'g'ri");
+  const maxUses = b.maxUses === '' || b.maxUses == null ? null : Math.floor(Number(b.maxUses));
+  if (maxUses !== null && !(maxUses >= 1 && maxUses <= 1_000_000)) throw new Biz(400, 'bad_qty', "Miqdor noto'g'ri");
+  const endsAt = /^\d{4}-\d{2}-\d{2}$/.test(b.endsAt || '') ? b.endsAt : '';
+  return { type, value, minTotal, maxUses, endsAt };
+}
+
+app.get('/api/admin/codes', adminOnly, ah(async (_req, res) => {
+  res.json((await q('select * from promo_codes order by id desc')).rows.map(toCode));
+}));
+
+app.post('/api/admin/codes', adminOnly, ah(async (req, res) => {
+  const b = req.body || {};
+  const code = normCode(b.code) || randomCode();
+  if (!CODE_RE.test(code)) throw new Biz(400, 'bad_code', "Promokod 3–20 ta lotin harf, raqam, - yoki _ bo'lsin");
+  const d = readCode(b);
+  try {
+    const { rows } = await q(
+      'insert into promo_codes(code, type, value, min_total, max_uses, ends_at) values($1,$2,$3,$4,$5,$6) returning *',
+      [code, d.type, d.value, d.minTotal, d.maxUses, d.endsAt]
+    );
+    res.status(201).json(toCode(rows[0]));
+  } catch (e) {
+    if (e.code === '23505') throw new Biz(409, 'code_exists', 'Bunday promokod bor');
+    throw e;
+  }
+}));
+
+app.patch('/api/admin/codes/:id', adminOnly, ah(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || typeof req.body?.active !== 'boolean') throw new Biz(400, 'not_found', 'Topilmadi');
+  const { rows } = await q('update promo_codes set active = $2 where id = $1 returning *', [id, req.body.active]);
+  if (!rows[0]) throw new Biz(404, 'not_found', 'Topilmadi');
+  res.json(toCode(rows[0]));
+}));
+
+app.delete('/api/admin/codes/:id', adminOnly, ah(async (req, res) => {
+  const id = Number(req.params.id);
+  const r = Number.isInteger(id) ? await q('delete from promo_codes where id = $1', [id]) : { rowCount: 0 };
+  if (!r.rowCount) return fail(res, 404, 'not_found', 'Topilmadi');
+  res.json({ ok: true });
+}));
+
 // ---------- Yuklangan rasmlar (bazadan) va tayyor Vue sayti ----------
 app.get('/uploads/:name', ah(async (req, res) => {
   if (!/^[a-f0-9]{16,40}\.(jpg|png|webp)$/.test(req.params.name)) return res.sendStatus(404);
@@ -401,6 +564,7 @@ if (fs.existsSync(distDir)) {
 // Kutilmagan xatolar: serverni yiqitmaymiz, mijozga tushunarli javob beramiz
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
+  if (err instanceof Biz) return res.status(err.status).json({ code: err.code, error: err.message, ...err.extra });
   console.error('Xato:', err);
   if (res.headersSent) return;
   fail(res, 500, 'server', 'Server xatosi');

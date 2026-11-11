@@ -1,11 +1,13 @@
 <script setup>
 import { RouterLink } from 'vue-router';
 import { useMenuStore } from '../stores/menu';
+import { useThemeStore } from '../stores/theme';
 import { money } from '../api';
 import { loc } from '../i18n';
 import AppIcon from '../components/AppIcon.vue';
 
 const menu = useMenuStore();
+const theme = useThemeStore();
 
 function fromPrice(id) {
   const prices = menu.byCategory(id).map((p) => p.price);
@@ -24,9 +26,9 @@ function fromPrice(id) {
         <a href="tel:+998888770810" class="btn ghost"><AppIcon name="delivery" /> {{ $t('home.delivery') }}</a>
       </div>
       <div class="showcase">
-        <img src="/images/hotdog.jpg" alt="Hot dog" />
-        <img src="/images/lavash.jpg" alt="Lavash" class="mid" />
-        <img src="/images/donar.jpg" alt="Donar" />
+        <img :src="theme.img('hotdog')" alt="Hot dog" @error="theme.fallback" />
+        <img :src="theme.img('lavash')" alt="Lavash" class="mid" @error="theme.fallback" />
+        <img :src="theme.img('donar')" alt="Donar" @error="theme.fallback" />
       </div>
     </div>
   </section>
@@ -35,7 +37,7 @@ function fromPrice(id) {
     <h2 class="section-title">{{ $t('home.categories') }}</h2>
     <div class="cats">
       <RouterLink v-for="c in menu.categories" :key="c.id" :to="{ path: '/menu', hash: '#' + c.id }" class="card cat">
-        <div class="photo"><img :src="`/images/${c.image}.jpg`" :alt="loc(c.names, c.name)" loading="lazy" /></div>
+        <div class="photo"><img :src="theme.img(c.image)" :alt="loc(c.names, c.name)" loading="lazy" @error="theme.fallback" /></div>
         <span class="display">{{ loc(c.names, c.name) }}</span>
         <small class="muted">{{ $t('home.kinds', { n: menu.byCategory(c.id).length, price: fromPrice(c.id) }) }}</small>
       </RouterLink>
@@ -70,7 +72,7 @@ function fromPrice(id) {
 .showcase {
   // Rasmlarning foni qora, shuning uchun ikkala mavzuda ham qora yumaloq panelda turadi
   display: flex; justify-content: center; align-items: center; gap: 8px; margin: clamp(26px, 5vw, 44px) auto 0;
-  max-width: 880px; padding: clamp(8px, 2vw, 18px); border-radius: 22px; background: #000;
+  max-width: 880px; padding: clamp(8px, 2vw, 18px); border-radius: 22px; background: var(--img-bg);
   box-shadow: 0 18px 50px var(--shadow);
   img { width: min(31%, 300px); }
   .mid { width: min(38%, 380px); }
@@ -80,7 +82,7 @@ function fromPrice(id) {
 .cat {
   display: flex; flex-direction: column; gap: 4px; transition: border-color 0.2s, transform 0.2s;
   min-width: 0; overflow-wrap: anywhere;
-  .photo { height: 150px; display: grid; place-items: center; margin-bottom: 6px; overflow: hidden; border-radius: 10px; background: #000; }
+  .photo { height: 150px; display: grid; place-items: center; margin-bottom: 6px; overflow: hidden; border-radius: 10px; background: var(--img-bg); }
   .photo img { max-height: 100%; max-width: 100%; object-fit: contain; transition: transform 0.3s; }
   .display { font-size: 1.4rem; color: var(--green); }
   &:hover { border-color: var(--green); transform: translateY(-3px); .photo img { transform: scale(1.06); } }
