@@ -107,4 +107,6 @@ export const brand = {
   instagram: 'avazbek_fastfood',
   phones: ['+998 97 212 03 93', '+998 88 877 08 10'],
   deliveryFee: 8000,
+  // Xarita boshlang'ich markazi (Toshkent). O'z joylashuvingizga almashtiring: [kenglik, uzunlik]
+  mapCenter: [41.3111, 69.2797],
 };

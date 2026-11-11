@@ -1,0 +1,151 @@
+<script setup>
+// Manzilni qo'lda yozish o'rniga xaritadan belgilash.
+// Xaritani bosing yoki pinni suring; "Men turgan joy" tugmasi qurilma joylashuvini ko'rsatadi.
+// Xarita: Google (GOOGLE_MAPS_KEY) > Yandex (YANDEX_MAPS_KEY) > OpenStreetMap.
+import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { lang, t } from '../i18n';
+import { createMapDriver } from '../utils/mapDrivers';
+import AppIcon from './AppIcon.vue';
+
+const props = defineProps({
+  modelValue: { type: Object, default: null }, // { lat, lng, address }
+  center: { type: Array, default: () => [41.3111, 69.2797] },
+  yandexKey: { type: String, default: '' },
+  googleKey: { type: String, default: '' },
+});
+const emit = defineEmits(['update:modelValue']);
+
+const el = ref(null);
+const locating = ref(false);
+const note = ref('');
+const address = ref(props.modelValue?.address || '');
+const resolving = ref(false);
+const accuracy = ref(null);
+const provider = ref('');
+let driver;
+let watchId = null;
+let stopTimer;
+let geoToken = 0;
+let gone = false;
+
+const fmt = (n) => Number(n).toFixed(5);
+
+// Koordinatadan odam o'qiy oladigan manzil. Topilmasa koordinatalarning o'zi ko'rsatiladi.
+async function resolve(lat, lng) {
+  const token = ++geoToken;
+  resolving.value = true;
+  const text = await driver.geocode(lat, lng, lang.value);
+  if (token !== geoToken || text === null) return; // yangiroq so'rov ketgan
+  resolving.value = false;
+  address.value = text || `${fmt(lat)}, ${fmt(lng)}`;
+  emit('update:modelValue', { lat, lng, address: address.value });
+}
+
+function place(lat, lng, { zoom, acc, geocode = true } = {}) {
+  if (!driver) return;
+  note.value = '';
+  driver.setMarker(lat, lng, (a, b) => place(a, b)); // qo'lda surilsa — bu endi aniq joy, doira kerak emas
+  accuracy.value = acc ?? null;
+  driver.circle(lat, lng, acc);
+  if (zoom) driver.view(lat, lng, zoom);
+  else driver.pan(lat, lng);
+  // Manzil topilguncha koordinatalarni darhol yuboramiz: tugma bosilgach "manzil yo'q" bo'lib qolmasin
+  emit('update:modelValue', { lat, lng, address: `${fmt(lat)}, ${fmt(lng)}` });
+  if (geocode) resolve(lat, lng);
+}
+
+// Qurilma joylashuvi: birinchi javob ko'pincha taxminiy (Wi-Fi/IP) bo'ladi, shuning uchun GPS aniqlashguncha
+// (±25 m) yoki 15 soniya kuzatamiz va eng aniq natijani olamiz.
+function stopWatch() {
+  if (watchId != null) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  clearTimeout(stopTimer);
+  locating.value = false;
+}
+function locate() {
+  if (!('geolocation' in navigator)) {
+    note.value = t('map.unsupported');
+    return;
+  }
+  stopWatch();
+  locating.value = true;
+  note.value = '';
+  let best = null;
+  const finish = () => {
+    stopWatch();
+    if (best) place(best.lat, best.lng, { zoom: 18, acc: best.acc });
+    else if (!note.value) note.value = t('map.unavailable');
+  };
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
+      if (!best || acc < best.acc) {
+        best = { lat, lng, acc: Math.round(acc) };
+        place(lat, lng, { zoom: acc < 200 ? 18 : 16, acc: best.acc, geocode: false });
+      }
+      if (acc <= 25) finish();
+    },
+    (err) => {
+      if (best) return finish();
+      stopWatch();
+      note.value = t(err.code === 1 ? 'map.denied' : 'map.unavailable');
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+  );
+  stopTimer = setTimeout(finish, 15000);
+}
+
+onMounted(async () => {
+  const d = await createMapDriver({ google: props.googleKey, yandex: props.yandexKey }, lang.value);
+  if (gone) return d.destroy();
+  driver = d;
+  provider.value = d.name;
+  const start = props.modelValue ? [props.modelValue.lat, props.modelValue.lng] : props.center;
+  driver.init(el.value, start, props.modelValue ? 17 : 13, (lat, lng) => place(lat, lng));
+  if (props.modelValue) place(props.modelValue.lat, props.modelValue.lng, { zoom: 17 });
+});
+onBeforeUnmount(() => {
+  gone = true;
+  stopWatch();
+  driver?.destroy();
+});
+</script>
+
+<template>
+  <div class="picker">
+    <div class="bar">
+      <button type="button" class="btn small" :disabled="locating" @click="locate">
+        <AppIcon name="locate" :size="18" />{{ locating ? $t('map.locating') : $t('map.myLocation') }}
+      </button>
+      <span class="muted help">{{ $t('map.help') }}</span>
+    </div>
+    <div ref="el" class="map" :data-provider="provider" role="application" :aria-label="$t('map.label')"></div>
+    <p v-if="note" class="error">{{ note }}</p>
+    <p v-else-if="accuracy" class="acc" :class="{ weak: accuracy > 150 }">
+      {{ accuracy > 150 ? $t('map.weak', { m: accuracy }) : $t('map.accuracy', { m: accuracy }) }}
+    </p>
+    <p v-if="modelValue" class="chosen">
+      <AppIcon name="pin" :size="18" />
+      <span>{{ resolving ? $t('map.resolving') : address }}</span>
+    </p>
+    <p v-else class="muted chosen none">{{ $t('map.notChosen') }}</p>
+  </div>
+</template>
+
+<style scoped lang="scss">
+.picker { display: flex; flex-direction: column; gap: 8px; }
+.bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.help { font-size: 0.82rem; flex: 1; min-width: 160px; }
+.map { height: 300px; border-radius: 12px; border: 1px solid var(--line); overflow: hidden; z-index: 0; touch-action: pan-x pan-y; }
+.acc { font-size: 0.82rem; color: var(--muted); &.weak { color: var(--danger); font-weight: 600; } }
+.chosen { display: flex; gap: 8px; align-items: flex-start; font-size: 0.92rem; color: var(--text); svg { color: var(--green-bright); margin-top: 2px; } &.none { font-style: italic; } }
+@media (max-width: 480px) { .map { height: 260px; } }
+</style>
+
+<style lang="scss">
+// Tun rejimida xarita ham qorong'ilashadi
+:root[data-theme='dark'] .picker .leaflet-tile-pane,
+:root[data-theme='dark'] .picker [class*='-ground-pane'] { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9); }
+.avz-pin { background: none; border: 0; }
+.picker .leaflet-container { font: inherit; }
+</style>

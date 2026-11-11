@@ -73,3 +73,13 @@ flutter build apk --dart-define=API_BASE=https://avazbek.uz
 - Ma'lumotlar PostgreSQL'da (`DATABASE_URL`). Vaqti-vaqti bilan `pg_dump "$DATABASE_URL" > zaxira.sql` qilib zaxira oling.
 - Admin parolini albatta almashtiring (3-qadamdagi `ADMIN_PASSWORD`).
 - Saytni yangilash: yangi fayllarni yuklab, `frontend` da `npm run build`, keyin `pm2 restart avazbek`.
+
+## Yandex xarita (ixtiyoriy)
+Buyurtmada manzil tanlash xaritasi Yandex Maps bo'lishi uchun kalit kerak:
+1. https://developer.tech.yandex.ru → «Кабинет разработчика» → kalit yarating, xizmat: **«JavaScript API и HTTP Геокодер»**.
+2. Kalitni HTTP-referer bo'yicha sayt domeningizga cheklang.
+3. Render → Environment → `YANDEX_MAPS_KEY` = kalitingiz → Save (qayta deploy bo'ladi).
+Kalit bo'lmasa yoki Yandex yuklanmasa, sayt avtomatik OpenStreetMap xaritasiga o'tadi. Admin paneldagi "xaritada ochish" havolasi Google Maps'ni ochadi (kalit shart emas).
+
+## Google xarita (ixtiyoriy)
+Render → Environment → `GOOGLE_MAPS_KEY` = kalit. Google API kalitida Maps JavaScript API va Geocoding API yoqilgan, billing ulangan va kalit sayt domeniga (HTTP referrer) cheklangan bo'lishi kerak. Ustuvorlik: Google > Yandex > OpenStreetMap. Skript yuklanmasa sayt keyingisiga avtomatik o'tadi.
