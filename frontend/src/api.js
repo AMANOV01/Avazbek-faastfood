@@ -14,7 +14,7 @@ async function request(url, options = {}) {
   if (!res.ok) {
     // Server xato kodini yuboradi — matn foydalanuvchi tilida chiqadi
     const key = `err.${data.code}`;
-    const msg = t(key) !== key ? t(key) : data.error || t('err.generic');
+    const msg = t(key) !== key ? t(key, { ...data, min: data.min ? money(data.min) : '' }) : data.error || t('err.generic');
     throw Object.assign(new Error(msg), { code: data.code, status: res.status });
   }
   return data;
@@ -29,6 +29,7 @@ export const api = {
   products: () => request('/api/products'),
   promos: () => request('/api/promos'),
   pushKey: () => request('/api/push/key'),
+  checkCode: (b) => request('/api/promo-codes/check', { method: 'POST', body: body(b) }),
   createOrder: (b) => request('/api/orders', { method: 'POST', body: body(b) }),
   lookupOrders: (orders) => request('/api/orders/lookup', { method: 'POST', body: body({ orders }) }),
   attachPush: (id, token, subscription, lang) =>
@@ -53,6 +54,13 @@ export const api = {
   adminPatchPromo: (pw, id, b) =>
     request(`/api/admin/promos/${id}`, { method: 'PATCH', headers: A(pw), body: body(b) }),
   adminDeletePromo: (pw, id) => request(`/api/admin/promos/${id}`, { method: 'DELETE', headers: A(pw) }),
+
+  adminSettings: (pw) => request('/api/admin/settings', { headers: A(pw) }),
+  adminSaveSettings: (pw, b) => request('/api/admin/settings', { method: 'PUT', headers: A(pw), body: body(b) }),
+  adminCodes: (pw) => request('/api/admin/codes', { headers: A(pw) }),
+  adminAddCode: (pw, b) => request('/api/admin/codes', { method: 'POST', headers: A(pw), body: body(b) }),
+  adminPatchCode: (pw, id, b) => request(`/api/admin/codes/${id}`, { method: 'PATCH', headers: A(pw), body: body(b) }),
+  adminDeleteCode: (pw, id) => request(`/api/admin/codes/${id}`, { method: 'DELETE', headers: A(pw) }),
 };
 
 export const money = (n) => new Intl.NumberFormat('ru-RU').format(n).replace(/\s/g, ' ');

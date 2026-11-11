@@ -11,7 +11,9 @@ import './styles/main.scss';
 const app = createApp(App).use(createPinia()).use(router);
 app.config.globalProperties.$t = t; // shablonlarda {{ $t('kalit') }}
 app.config.globalProperties.$loc = loc;
-useThemeStore().apply();
+const theme = useThemeStore();
+theme.apply();
+theme.probeDayImages();
 app.mount('#app');
 
 // Bildirishnoma ruxsati berilgan bo'lsa, service worker yangilanib turadi.
