@@ -13,7 +13,7 @@ import LangSwitch from '../components/LangSwitch.vue';
 const theme = useThemeStore();
 const notify = useNotifyStore();
 const KEY = 'avz_admin';
-const STATUSES = ['new', 'cooking', 'delivering', 'done', 'cancelled'];
+const STATUSES = ['awaiting_payment', 'new', 'cooking', 'delivering', 'done', 'cancelled'];
 
 const password = ref('');
 const authed = ref(false);
@@ -23,6 +23,7 @@ const tab = ref('orders');
 const orders = ref([]);
 const products = ref([]);
 const promos = ref([]);
+const codes = ref([]);
 const categories = ref([]);
 const filter = ref('active');
 const notifState = ref('ask');
@@ -54,6 +55,9 @@ async function loadOrders() {
 async function loadProducts() {
   products.value = await api.adminProducts(password.value);
 }
+async function loadCodes() {
+  codes.value = await api.adminCodes(password.value);
+}
 async function loadPromos() {
   promos.value = await api.adminPromos(password.value);
 }
@@ -67,7 +71,7 @@ async function login() {
     sessionStorage.setItem(KEY, password.value);
     authed.value = true;
     categories.value = await api.categories();
-    await Promise.all([loadOrders(), loadProducts(), loadPromos()]);
+    await Promise.all([loadOrders(), loadProducts(), loadPromos(), loadCodes(), loadSettings()]);
     clearInterval(timer);
     timer = setInterval(poll, 8000);
     initNotifications();
@@ -87,6 +91,7 @@ function logout() {
   orders.value = [];
   products.value = [];
   promos.value = [];
+  codes.value = [];
   knownIds = null;
 }
 
@@ -119,7 +124,7 @@ async function setStatus(o, status) {
     fail(e);
   }
 }
-const newCount = computed(() => orders.value.filter((o) => o.status === 'new').length);
+const newCount = computed(() => orders.value.filter((o) => o.status === 'new' || o.status === 'awaiting_payment').length);
 const shownOrders = computed(() =>
   filter.value === 'all' ? orders.value : orders.value.filter((o) => !['done', 'cancelled'].includes(o.status))
 );
@@ -269,6 +274,91 @@ async function removePromo(pr) {
 const promoState = (pr) => (!pr.active ? 'off' : pr.live ? 'on' : 'expired');
 const promoProduct = (pr) => products.value.find((p) => p.id === pr.productId);
 
+// ---------- Promokodlar ----------
+const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const randomCode = () => Array.from(crypto.getRandomValues(new Uint8Array(7)), (b) => ALPHABET[b % ALPHABET.length]).join('');
+const cform = reactive({ code: randomCode(), type: 'percent', value: 10, minTotal: '', maxUses: '', endsAt: '' });
+const codeState = (c) => (!c.active ? 'off' : c.live ? 'on' : 'expired');
+const codeValue = (c) => (c.type === 'percent' ? `−${c.value}%` : `−${money(c.value)} ${t('som')}`);
+
+async function addCode() {
+  busy.value = true;
+  try {
+    const c = await api.adminAddCode(password.value, {
+      ...cform,
+      value: Number(cform.value),
+      minTotal: cform.minTotal === '' ? 0 : Number(cform.minTotal),
+      maxUses: cform.maxUses === '' ? null : Number(cform.maxUses),
+    });
+    flash(t('admin.code.added', { code: c.code }));
+    Object.assign(cform, { code: randomCode(), endsAt: '' });
+    await loadCodes();
+  } catch (e) {
+    fail(e);
+  } finally {
+    busy.value = false;
+  }
+}
+async function toggleCode(c) {
+  try {
+    Object.assign(c, await api.adminPatchCode(password.value, c.id, { active: !c.active }));
+  } catch (e) {
+    fail(e);
+  }
+}
+async function removeCode(c) {
+  if (!window.confirm(t('admin.code.confirmDelete', { code: c.code }))) return;
+  try {
+    await api.adminDeleteCode(password.value, c.id);
+    await loadCodes();
+  } catch (e) {
+    fail(e);
+  }
+}
+async function copyCode(c) {
+  try {
+    await navigator.clipboard.writeText(c.code);
+    flash(t('common.copied'));
+  } catch {
+    /* nusxalab bo'lmasa ham mayli */
+  }
+}
+const mapLink = (o) => `https://www.openstreetmap.org/?mlat=${o.lat}&mlon=${o.lng}#map=18/${o.lat}/${o.lng}`;
+const payText = (o) => (o.payMethod === 'card' ? `${t('pay.card')} · ${o.payCard === 'humo' ? 'Humo' : 'Uzcard'}${o.payLast4 ? ' · •••• ' + o.payLast4 : ''}` : t('pay.cash'));
+
+// ---------- To'lov kartalari ----------
+const cards = ref([]);
+const activeCard = ref('');
+const fmtCard = (v) => v.replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 ');
+const newId = () => 'c' + Math.random().toString(36).slice(2, 8);
+async function loadSettings() {
+  const r = await api.adminCards(password.value);
+  cards.value = r.cards.map((c) => ({ ...c, number: fmtCard(c.number) }));
+  activeCard.value = r.activeId;
+}
+function addCard() {
+  const c = { id: newId(), number: '', holder: '', type: 'uzcard' };
+  cards.value.push(c);
+  if (!activeCard.value) activeCard.value = c.id;
+}
+function removeCard(i) {
+  const [gone] = cards.value.splice(i, 1);
+  if (gone.id === activeCard.value) activeCard.value = cards.value[0]?.id || '';
+}
+async function saveCards() {
+  busy.value = true;
+  try {
+    const r = await api.adminSaveCards(password.value, { cards: cards.value, activeId: activeCard.value });
+    cards.value = r.cards.map((c) => ({ ...c, number: fmtCard(c.number) }));
+    activeCard.value = r.activeId;
+    flash(t('admin.set.saved'));
+  } catch (e) {
+    fail(e);
+  } finally {
+    busy.value = false;
+  }
+}
+
 const onPush = () => poll();
 onMounted(() => {
   window.addEventListener('avz:push', onPush);
@@ -342,6 +432,12 @@ onUnmounted(() => {
           <button class="btn small" :class="{ ghost: tab !== 'promos' }" role="tab" @click="tab = 'promos'">
             <AppIcon name="tag" :size="18" />{{ $t('admin.tab.promos') }}
           </button>
+          <button class="btn small" :class="{ ghost: tab !== 'codes' }" role="tab" @click="tab = 'codes'">
+            <AppIcon name="ticket" :size="18" />{{ $t('admin.tab.codes') }}
+          </button>
+          <button class="btn small" :class="{ ghost: tab !== 'settings' }" role="tab" @click="tab = 'settings'">
+            <AppIcon name="card" :size="18" />{{ $t('admin.tab.settings') }}
+          </button>
         </div>
 
         <!-- ===== Buyurtmalar ===== -->
@@ -352,7 +448,7 @@ onUnmounted(() => {
           </div>
           <div class="list">
             <p v-if="!shownOrders.length" class="muted">{{ $t('admin.noOrders') }}</p>
-            <article v-for="o in shownOrders" :key="o.id" class="card" :class="{ fresh: o.status === 'new' }">
+            <article v-for="o in shownOrders" :key="o.id" class="card" :class="{ fresh: o.status === 'new' || o.status === 'awaiting_payment' }">
               <header>
                 <b>#{{ o.id }} · {{ o.name }}</b>
                 <span class="price">{{ money(o.total) }} {{ $t('som') }}</span>
@@ -363,11 +459,22 @@ onUnmounted(() => {
                 {{ formatDate(o.createdAt) }}
                 <AppIcon v-if="o.hasPush" name="bell" :size="14" class="bellmark" :title="$t('admin.customerNotif')" />
               </p>
+              <p v-if="o.type === 'delivery' && o.lat != null" class="meta">
+                <a :href="mapLink(o)" target="_blank" rel="noopener" class="maplink"><AppIcon name="pin" :size="16" />{{ $t('admin.openMap') }}</a>
+              </p>
+              <p class="meta paymeta">
+                <AppIcon :name="o.payMethod === 'card' ? 'card' : 'cash'" :size="16" />{{ payText(o) }}
+                <span v-if="o.promoCode" class="codetag"><AppIcon name="ticket" :size="14" />{{ o.promoCode }} · −{{ money(o.codeDiscount) }}</span>
+              </p>
               <ul><li v-for="l in o.items" :key="l.productId">{{ l.qty }} × {{ loc(l.names, l.name) }}<small v-if="l.basePrice && l.basePrice > l.price" class="muted"> · {{ $t('promo.applied') }}</small></li></ul>
               <p v-if="o.comment" class="muted">{{ $t('admin.comment', { c: o.comment }) }}</p>
+              <div v-if="o.status === 'awaiting_payment'" class="payalert">
+                <span><AppIcon name="card" :size="18" />{{ $t('admin.payCheck', { sum: money(o.total) }) }}</span>
+                <button class="btn small" @click="setStatus(o, 'cooking')"><AppIcon name="check" :size="16" />{{ $t('admin.payConfirm') }}</button>
+              </div>
               <div class="statuses" role="group" :aria-label="$t('admin.setStatus')">
                 <template v-for="s in STATUSES" :key="s">
-                  <button v-if="s !== 'delivering' || o.type === 'delivery'" class="btn small" :class="[{ ghost: o.status !== s }, 'st-' + s]" @click="setStatus(o, s)">{{ label(s) }}</button>
+                  <button v-if="(s !== 'delivering' || o.type === 'delivery') && (s !== 'awaiting_payment' || o.payMethod === 'card')" class="btn small" :class="[{ ghost: o.status !== s }, 'st-' + s]" @click="setStatus(o, s)">{{ label(s) }}</button>
                 </template>
               </div>
             </article>
@@ -437,7 +544,7 @@ onUnmounted(() => {
         </section>
 
         <!-- ===== Aksiyalar ===== -->
-        <section v-else>
+        <section v-else-if="tab === 'promos'">
           <p class="muted hint">{{ $t('admin.pr.hint') }}</p>
           <form class="card pform" @submit.prevent="addPromo">
             <h2 class="display">{{ $t('admin.pr.new') }}</h2>
@@ -475,6 +582,81 @@ onUnmounted(() => {
             </article>
           </div>
         </section>
+
+        <!-- ===== Promokodlar ===== -->
+        <section v-else-if="tab === 'codes'">
+          <p class="muted hint">{{ $t('admin.code.hint') }}</p>
+          <form class="card pform" @submit.prevent="addCode">
+            <h2 class="display">{{ $t('admin.code.new') }}</h2>
+            <div class="grid2">
+              <div class="field">
+                <label>{{ $t('admin.code.code') }}</label>
+                <div class="codeinput">
+                  <input v-model.trim="cform.code" maxlength="20" required pattern="[A-Za-z0-9_\-]{3,20}" autocapitalize="characters" spellcheck="false" />
+                  <button type="button" class="btn small ghost" @click="cform.code = randomCode()">{{ $t('admin.code.random') }}</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>{{ $t('admin.pr.type') }}</label>
+                <select v-model="cform.type"><option value="percent">{{ $t('admin.pr.percent') }}</option><option value="amount">{{ $t('admin.pr.amount') }}</option></select>
+              </div>
+              <div class="field"><label>{{ $t('admin.pr.value') }}</label><input v-model.number="cform.value" type="number" min="1" :max="cform.type === 'percent' ? 90 : undefined" required inputmode="numeric" /></div>
+              <div class="field"><label>{{ $t('admin.code.minTotal') }}</label><input v-model="cform.minTotal" type="number" min="0" step="1000" inputmode="numeric" placeholder="0" /></div>
+              <div class="field"><label>{{ $t('admin.code.maxUses') }}</label><input v-model="cform.maxUses" type="number" min="1" inputmode="numeric" :placeholder="$t('admin.code.unlimited')" /></div>
+              <div class="field"><label>{{ $t('admin.pr.endsAt') }}</label><input v-model="cform.endsAt" type="date" /></div>
+            </div>
+            <p class="muted small-note">{{ $t('admin.code.rule') }}</p>
+            <div class="actions"><button class="btn" :disabled="busy"><AppIcon name="plus" :size="18" />{{ $t('admin.code.create') }}</button></div>
+          </form>
+
+          <div class="list">
+            <p v-if="!codes.length" class="muted">{{ $t('admin.code.empty') }}</p>
+            <article v-for="c in codes" :key="c.id" class="card promo-card" :class="codeState(c)">
+              <div class="pinfo">
+                <b class="codetext">{{ c.code }} <small class="muted">{{ codeValue(c) }}</small></b>
+                <small class="muted">
+                  {{ $t('admin.code.used', { n: c.usedCount, max: c.maxUses ?? '∞' }) }}
+                  <template v-if="c.minTotal"> · {{ $t('admin.code.minShort', { sum: money(c.minTotal) }) }}</template>
+                  <template v-if="c.endsAt"> · {{ $t('promo.until', { date: formatDay(c.endsAt) }) }}</template>
+                </small>
+              </div>
+              <span class="chip" :class="codeState(c)">{{ $t(`admin.code.${codeState(c)}`) }}</span>
+              <div class="pbtns">
+                <button class="btn small ghost" @click="copyCode(c)">{{ $t('common.copy') }}</button>
+                <button class="btn small ghost" @click="toggleCode(c)"><AppIcon :name="c.active ? 'pause' : 'play'" :size="16" />{{ $t(c.active ? 'admin.pr.pause' : 'admin.pr.resume') }}</button>
+                <button class="btn small ghost icon danger" :aria-label="$t('admin.p.delete')" @click="removeCode(c)"><AppIcon name="trash" :size="18" /></button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- ===== Sozlamalar: to'lov kartalari ===== -->
+        <section v-else>
+          <p class="muted hint">{{ $t('admin.set.hint') }}</p>
+          <form class="cardlist" @submit.prevent="saveCards">
+            <article v-for="(c, i) in cards" :key="c.id" class="card cardedit" :class="{ active: c.id === activeCard }">
+              <label class="activepick">
+                <input v-model="activeCard" type="radio" name="activecard" :value="c.id" />
+                <span>{{ c.id === activeCard ? $t('admin.set.active') : $t('admin.set.makeActive') }}</span>
+              </label>
+              <div class="grid2">
+                <div class="field"><label>{{ $t('admin.set.number') }}</label><input v-model="c.number" inputmode="numeric" autocomplete="off" maxlength="19" placeholder="8600 0000 0000 0000" required @input="c.number = fmtCard(c.number)" /></div>
+                <div class="field">
+                  <label>{{ $t('admin.set.type') }}</label>
+                  <select v-model="c.type"><option value="uzcard">Uzcard</option><option value="humo">Humo</option></select>
+                </div>
+                <div class="field"><label>{{ $t('admin.set.holder') }}</label><input v-model.trim="c.holder" maxlength="60" autocomplete="off" /></div>
+              </div>
+              <button type="button" class="btn small ghost danger" @click="removeCard(i)"><AppIcon name="trash" :size="16" />{{ $t('admin.set.remove') }}</button>
+            </article>
+            <p v-if="!cards.length" class="muted">{{ $t('admin.set.none') }}</p>
+            <div class="actions">
+              <button type="button" class="btn ghost" :disabled="cards.length >= 10" @click="addCard"><AppIcon name="plus" :size="18" />{{ $t('admin.set.add') }}</button>
+              <button class="btn" :disabled="busy"><AppIcon name="check" :size="18" />{{ $t('admin.p.save') }}</button>
+            </div>
+            <p class="muted small-note">{{ $t('admin.set.note') }}</p>
+          </form>
+        </section>
       </template>
     </div>
   </div>
@@ -511,12 +693,21 @@ ul { margin: 8px 0 8px 20px; }
 .check { display: flex; align-items: center; gap: 10px; margin-top: 28px; min-height: 48px; input { width: 20px; height: 20px; accent-color: var(--green); } }
 .small-note { font-size: 0.82rem; margin-bottom: 10px; }
 .imgbox { display: flex; gap: 16px; align-items: center; margin-block: 8px 14px; }
-.preview { width: 110px; height: 110px; flex: none; border-radius: 14px; background: #000; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line); color: var(--muted); img { width: 100%; height: 100%; object-fit: cover; } }
+.preview { width: 110px; height: 110px; flex: none; border-radius: 14px; background: var(--img-bg); display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line); color: var(--muted); img { width: 100%; height: 100%; object-fit: cover; } }
 .imgctl { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .filebtn { cursor: pointer; position: relative; input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; } &.disabled { opacity: 0.6; } }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .preview-line { display: flex; gap: 10px; align-items: flex-start; background: var(--glow); border: 1px dashed var(--green); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; svg { color: var(--green-bright); margin-top: 3px; } }
 .hint { margin-bottom: 12px; }
+.cardlist { display: grid; gap: 14px; }
+.cardedit { display: grid; gap: 8px; > .btn { justify-self: start; } &.active { border-color: var(--green-bright); box-shadow: 0 0 0 4px var(--glow); } }
+.activepick { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: var(--green-bright); input { accent-color: var(--green-bright); width: 18px; height: 18px; } }
+.payalert { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--glow); border: 1px dashed var(--green-bright); span { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; } }
+.maplink { display: inline-flex; align-items: center; gap: 6px; color: var(--green-bright); font-weight: 600; text-decoration: underline; }
+.paymeta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.codetag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; border: 1px dashed var(--green-bright); color: var(--green-bright); font-weight: 600; font-size: 0.85rem; }
+.codeinput { display: flex; gap: 8px; input { flex: 1; text-transform: uppercase; letter-spacing: 0.08em; } }
+.codetext { font-family: 'Oswald', sans-serif; letter-spacing: 0.1em; font-size: 1.15rem; small { letter-spacing: 0; font-family: 'Inter', sans-serif; } }
 
 .plist { padding: 6px 14px; }
 .prow {
@@ -524,7 +715,7 @@ ul { margin: 8px 0 8px 20px; }
   &:last-child { border-bottom: 0; }
   &.off { opacity: 0.6; }
 }
-.pthumb { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; background: #000; &.ph { opacity: 0.35; object-fit: contain; } }
+.pthumb { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; background: var(--img-bg); &.ph { opacity: 0.35; object-fit: contain; } }
 .pname { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .pprice { width: 100%; }
 .pbtns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }

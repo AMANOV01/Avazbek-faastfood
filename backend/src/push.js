@@ -1,22 +1,26 @@
 // Web Push (telefon/kompyuter bildirishnomalari)
-// VAPID kalitlari birinchi ishga tushishda avtomatik yaratiladi va db.json da saqlanadi.
-// Ishonchli bo'lishi uchun VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ni muhit o'zgaruvchisi sifatida ham berish mumkin.
+// VAPID kalitlari birinchi ishga tushishda yaratilib bazada (settings jadvali) saqlanadi.
+// Xohlasangiz VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY muhit o'zgaruvchisi sifatida ham berish mumkin.
 import webpush from 'web-push';
-import { db, save } from './db.js';
+import { q, getSetting, setSetting } from './db.js';
 
-let keys;
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  keys = { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
-} else {
-  if (!db.vapid) {
-    db.vapid = webpush.generateVAPIDKeys();
-    save();
+let publicKey = '';
+
+export async function initPush() {
+  let keys;
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    keys = { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
+  } else {
+    keys = await getSetting('vapid');
+    if (!keys) {
+      keys = webpush.generateVAPIDKeys();
+      await setSetting('vapid', keys);
+    }
   }
-  keys = db.vapid;
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'https://avazbek.uz', keys.publicKey, keys.privateKey);
+  publicKey = keys.publicKey;
 }
-webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'https://avazbek.uz', keys.publicKey, keys.privateKey);
-
-export const publicKey = keys.publicKey;
+export const getPublicKey = () => publicKey;
 
 function isValidSub(sub) {
   return (
@@ -40,24 +44,19 @@ async function sendOne(sub, payload) {
 }
 
 export async function notifyAdmins(payload) {
+  const { rows } = await q('select endpoint, sub from admin_push');
   const dead = [];
   await Promise.all(
-    db.adminPush.map(async (sub) => {
-      if (await sendOne(sub, payload)) dead.push(sub.endpoint);
+    rows.map(async (r) => {
+      if (await sendOne(r.sub, payload)) dead.push(r.endpoint);
     })
   );
-  if (dead.length) {
-    db.adminPush = db.adminPush.filter((s) => !dead.includes(s.endpoint));
-    save();
-  }
+  if (dead.length) await q('delete from admin_push where endpoint = any($1)', [dead]);
 }
 
 export async function notifyCustomer(order, payload) {
   if (!order.push) return;
-  if (await sendOne(order.push, payload)) {
-    order.push = null;
-    save();
-  }
+  if (await sendOne(order.push, payload)) await q('update orders set push = null where id = $1', [order.id]);
 }
 
 // Mijozga yuboriladigan matnlar (buyurtma berilgan paytdagi tilda)
