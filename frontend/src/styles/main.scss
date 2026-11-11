@@ -42,7 +42,11 @@
 }
 
 // public/images/day/ ga kunduzgi rasmlar qo'yilganda ularning orqa foni och bo'ladi
+<<<<<<< HEAD
 :root[data-theme='light'][data-dayimg='1'] { --img-bg: #f7fafd; }
+=======
+:root[data-theme='light'][data-dayimg='1'] { --img-bg: #ebf3f5; }
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 

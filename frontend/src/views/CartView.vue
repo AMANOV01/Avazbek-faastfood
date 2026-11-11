@@ -78,7 +78,11 @@ function review() {
 }
 
 // 2-qadam: to'lov usuli tanlandi — buyurtma yuboriladi
+<<<<<<< HEAD
 async function submit({ payMethod, payCard }) {
+=======
+async function submit({ payMethod }) {
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   error.value = '';
   busy.value = true;
   try {
@@ -89,7 +93,11 @@ async function submit({ payMethod, payCard }) {
       ...form,
       ...(delivery ? { lat: place.value.lat, lng: place.value.lng, address: place.value.address } : {}),
       payMethod,
+<<<<<<< HEAD
       payCard,
+=======
+      paid: payMethod === 'card', // kartada: mijoz o'tkazganini tasdiqladi (admin pul tushganini tekshiradi)
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
       promoCode: applied.value?.code || '',
       lang: lang.value,
       items: cartItems(),
@@ -178,7 +186,11 @@ async function submit({ payMethod, payCard }) {
       </form>
     </div>
 
+<<<<<<< HEAD
     <PayModal :open="payOpen" :total="total" :busy="busy" @close="payOpen = false" @confirm="submit" />
+=======
+    <PayModal :open="payOpen" :total="total" :busy="busy" :card="menu.brand?.payCard || null" @close="payOpen = false" @confirm="submit" />
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   </div>
 </template>
 

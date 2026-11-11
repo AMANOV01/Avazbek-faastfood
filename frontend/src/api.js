@@ -55,6 +55,11 @@ export const api = {
     request(`/api/admin/promos/${id}`, { method: 'PATCH', headers: A(pw), body: body(b) }),
   adminDeletePromo: (pw, id) => request(`/api/admin/promos/${id}`, { method: 'DELETE', headers: A(pw) }),
 
+<<<<<<< HEAD
+=======
+  adminSettings: (pw) => request('/api/admin/settings', { headers: A(pw) }),
+  adminSaveSettings: (pw, b) => request('/api/admin/settings', { method: 'PUT', headers: A(pw), body: body(b) }),
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   adminCodes: (pw) => request('/api/admin/codes', { headers: A(pw) }),
   adminAddCode: (pw, b) => request('/api/admin/codes', { method: 'POST', headers: A(pw), body: body(b) }),
   adminPatchCode: (pw, id, b) => request(`/api/admin/codes/${id}`, { method: 'PATCH', headers: A(pw), body: body(b) }),

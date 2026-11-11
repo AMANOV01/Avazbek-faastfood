@@ -1,13 +1,23 @@
 <script setup>
+<<<<<<< HEAD
 // Buyurtma berishdan oldin to'lov usuli: naxd yoki karta (karta bo'lsa — O'zbekiston kartalari)
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { money } from '../api';
+=======
+// Buyurtma berishdan oldin to'lov usuli: naxd yoki karta.
+// Karta tanlansa, do'kon kartasi darhol ko'rsatiladi; buyurtma faqat "To'lov qildim" bosilgach yuboriladi.
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { money } from '../api';
+import { useNotifyStore } from '../stores/notify';
+import { t } from '../i18n';
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 import AppIcon from './AppIcon.vue';
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   total: { type: Number, default: 0 },
   busy: { type: Boolean, default: false },
+<<<<<<< HEAD
 });
 const emit = defineEmits(['close', 'confirm']);
 
@@ -26,6 +36,30 @@ const pick = (m) => {
   if (m === 'cash') card.value = '';
 };
 const confirm = () => ready() && emit('confirm', { payMethod: method.value, payCard: card.value });
+=======
+  card: { type: Object, default: null }, // { number, holder, type } — do'kon kartasi
+});
+const emit = defineEmits(['close', 'confirm']);
+
+const toast = useNotifyStore();
+const method = ref('');
+const dialog = ref(null);
+let opener = null;
+
+const spaced = computed(() => (props.card?.number || '').replace(/(\d{4})(?=\d)/g, '$1 '));
+const typeName = computed(() => (props.card?.type === 'humo' ? 'Humo' : 'Uzcard'));
+const ready = () => method.value === 'cash' || (method.value === 'card' && props.card);
+const confirm = () => ready() && emit('confirm', { payMethod: method.value });
+
+async function copy(text, msg) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.push({ title: msg || t('common.copied'), ms: 2500 });
+  } catch {
+    /* nusxalab bo'lmasa, foydalanuvchi raqamni qo'lda ko'chiradi */
+  }
+}
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 const onKey = (e) => {
   if (e.key === 'Escape' && !props.busy) emit('close');
   // Fokus oyna ichida qolsin (Tab)
@@ -75,6 +109,7 @@ onBeforeUnmount(() => {
         <fieldset class="opts">
           <legend class="sr">{{ $t('pay.title') }}</legend>
           <label class="opt" :class="{ on: method === 'cash' }">
+<<<<<<< HEAD
             <input type="radio" name="pay" value="cash" :checked="method === 'cash'" @change="pick('cash')" />
             <AppIcon name="cash" :size="26" />
             <span><b>{{ $t('pay.cash') }}</b><small class="muted">{{ $t('pay.cashHint') }}</small></span>
@@ -94,11 +129,42 @@ onBeforeUnmount(() => {
             <AppIcon v-if="card === c.id" name="check" :size="18" />
           </label>
         </fieldset>
+=======
+            <input type="radio" name="pay" value="cash" :checked="method === 'cash'" @change="method = 'cash'" />
+            <AppIcon name="cash" :size="26" />
+            <span><b>{{ $t('pay.cash') }}</b><small class="muted">{{ $t('pay.cashHint') }}</small></span>
+          </label>
+          <label class="opt" :class="{ on: method === 'card', off: !card }">
+            <input type="radio" name="pay" value="card" :checked="method === 'card'" :disabled="!card" @change="method = 'card'" />
+            <AppIcon name="card" :size="26" />
+            <span><b>{{ $t('pay.card') }}</b><small class="muted">{{ card ? $t('pay.cardHint') : $t('pay.cardOff') }}</small></span>
+          </label>
+        </fieldset>
+
+        <section v-if="method === 'card' && card" class="cardpanel" :class="card.type" aria-live="polite">
+          <p class="steps">{{ $t('pay.transferTo') }}</p>
+          <div class="plastic">
+            <span class="badge">{{ typeName }}</span>
+            <button type="button" class="num" :aria-label="$t('common.copy')" @click="copy(card.number)">{{ spaced }}</button>
+            <span v-if="card.holder" class="holder">{{ card.holder }}</span>
+          </div>
+          <div class="copyrow">
+            <button type="button" class="btn small ghost" @click="copy(card.number)"><AppIcon name="card" :size="16" />{{ $t('pay.copyNumber') }}</button>
+            <button type="button" class="btn small ghost" @click="copy(String(total), $t('pay.amountCopied'))">{{ $t('pay.copyAmount', { sum: money(total) }) }}</button>
+          </div>
+          <p class="accepted muted">{{ $t('pay.accepted') }} <b>Uzcard</b> · <b>Humo</b></p>
+          <p class="warn">{{ $t('pay.afterPay') }}</p>
+        </section>
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 
         <div class="foot">
           <div class="sum"><span>{{ $t('cart.total') }}</span><span class="price">{{ money(total) }} {{ $t('som') }}</span></div>
           <button class="btn" type="button" :disabled="!ready() || busy" style="width: 100%" @click="confirm">
+<<<<<<< HEAD
             {{ busy ? $t('cart.submitting') : $t('pay.confirm') }}
+=======
+            {{ busy ? $t('cart.submitting') : $t(method === 'card' ? 'pay.paid' : 'pay.confirm') }}
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
           </button>
         </div>
       </div>
@@ -128,6 +194,7 @@ fieldset { border: 0; min-width: 0; }
   &.on { border-color: var(--green-bright); box-shadow: 0 0 0 4px var(--glow); }
   &:has(input:focus-visible) { outline: 2px solid var(--green-bright); outline-offset: 2px; }
 }
+<<<<<<< HEAD
 .cards { margin-top: 14px; legend { color: var(--muted); font-size: 0.9rem; margin-bottom: 8px; } display: grid; grid-template-columns: 1fr 1fr; gap: 10px; legend { grid-column: 1 / -1; } }
 .cardopt {
   position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px; border: 2px solid var(--line); border-radius: 14px; cursor: pointer; background: var(--input-bg);
@@ -139,6 +206,21 @@ fieldset { border: 0; min-width: 0; }
   &.on { border-color: var(--green-bright); box-shadow: 0 0 0 4px var(--glow); }
   &:has(input:focus-visible) { outline: 2px solid var(--green-bright); outline-offset: 2px; }
 }
+=======
+.opt.off { opacity: 0.55; cursor: not-allowed; }
+.cardpanel { margin-top: 14px; display: grid; gap: 10px; .steps { color: var(--muted); font-size: 0.9rem; } }
+.plastic {
+  position: relative; display: grid; gap: 14px; padding: 18px; border-radius: 16px; color: #fff; overflow: hidden;
+  background: linear-gradient(135deg, #1d6fd1, #123c75); box-shadow: 0 8px 24px var(--shadow);
+  .badge { font-family: 'Oswald', sans-serif; font-size: 1.15rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; opacity: 0.95; }
+  .num { all: unset; cursor: pointer; font-family: 'Oswald', sans-serif; font-size: clamp(1.25rem, 6vw, 1.7rem); letter-spacing: 0.1em; font-variant-numeric: tabular-nums; &:focus-visible { outline: 2px solid #fff; outline-offset: 4px; } }
+  .holder { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85rem; opacity: 0.9; }
+}
+.humo .plastic { background: linear-gradient(135deg, #0a9aa8, #066a73); }
+.copyrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.accepted { font-size: 0.85rem; }
+.warn { font-size: 0.88rem; padding: 10px 12px; border-radius: 10px; background: var(--glow); border: 1px dashed var(--green-bright); }
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 .foot { margin-top: 18px; display: grid; gap: 12px; }
 .sum { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 600; }
 </style>

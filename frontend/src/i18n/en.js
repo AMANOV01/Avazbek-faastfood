@@ -177,7 +177,11 @@ export default {
   "pay.cash": "Cash",
   "pay.cashHint": "Pay in cash when you receive your order",
   "pay.card": "Card",
+<<<<<<< HEAD
   "pay.cardHint": "Pay by card when you receive your order",
+=======
+  "pay.cardHint": "Transfer to the shop's card",
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   "pay.chooseCard": "Choose card type",
   "pay.confirm": "Confirm and place order",
   "map.myLocation": "My location",
@@ -224,4 +228,31 @@ export default {
   "admin.code.on": "Active",
   "admin.code.off": "Paused",
   "admin.code.expired": "Ended",
+<<<<<<< HEAD
+=======
+  "pay.cardOff": "Not available yet (no card number set)",
+  "pay.transferTo": "Transfer exactly this amount to the card:",
+  "pay.copyNumber": "Copy number",
+  "pay.copyAmount": "Copy {sum} UZS",
+  "pay.amountCopied": "Amount copied",
+  "pay.accepted": "Transfers accepted from:",
+  "pay.afterPay": "After paying, tap “I have paid”. Your order is prepared once the payment is confirmed.",
+  "pay.paid": "I have paid — place order",
+  "status.awaiting_payment": "Checking payment",
+  "err.no_card": "Card payment is not available yet. Please choose cash.",
+  "err.pay_required": "Please complete the payment first",
+  "err.bad_card_number": "Card number must be 16 digits",
+  "admin.payCheck": "Customer says they sent {sum} UZS — check your card",
+  "admin.payConfirm": "Payment received, start cooking",
+  "admin.tab.settings": "Settings",
+  "admin.set.hint": "This card is shown to customers paying by card. Without a card number only cash works.",
+  "admin.set.card": "Payment card",
+  "admin.set.number": "Card number (16 digits)",
+  "admin.set.type": "Card type",
+  "admin.set.holder": "Card holder (optional)",
+  "admin.set.note": "Enter only your own card number. Orders arrive as “Checking payment” — once you see the money, tap “Payment received”.",
+  "admin.set.saved": "Saved",
+  "map.accuracy": "Accuracy: ±{m} m",
+  "map.weak": "Location is imprecise (±{m} m). Turn on GPS on your phone or drag the pin to the right spot.",
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 };

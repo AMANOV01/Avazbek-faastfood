@@ -178,7 +178,11 @@ export default {
   "pay.cash": "Naxd pul",
   "pay.cashHint": "Buyurtmani olganingizda naxd to'laysiz",
   "pay.card": "Karta",
+<<<<<<< HEAD
   "pay.cardHint": "Buyurtmani olganingizda karta orqali to'laysiz",
+=======
+  "pay.cardHint": "Do'kon kartasiga o'tkazma qilasiz",
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   "pay.chooseCard": "Karta turini tanlang",
   "pay.confirm": "Tasdiqlash va buyurtma berish",
   "map.myLocation": "Men turgan joy",
@@ -225,4 +229,31 @@ export default {
   "admin.code.on": "Faol",
   "admin.code.off": "To'xtatilgan",
   "admin.code.expired": "Tugagan",
+<<<<<<< HEAD
+=======
+  "pay.cardOff": "Hozircha mavjud emas (karta raqami kiritilmagan)",
+  "pay.transferTo": "Quyidagi kartaga aynan shu summani o'tkazing:",
+  "pay.copyNumber": "Raqamni nusxalash",
+  "pay.copyAmount": "{sum} so‘m nusxalash",
+  "pay.amountCopied": "Summa nusxalandi",
+  "pay.accepted": "O'tkazma qabul qilinadi:",
+  "pay.afterPay": "To'lovni amalga oshirgach «To'lov qildim» tugmasini bosing. Buyurtma pul tushganini tekshirgandan so'ng tayyorlanadi.",
+  "pay.paid": "To'lov qildim — buyurtma berish",
+  "status.awaiting_payment": "To'lov tekshirilmoqda",
+  "err.no_card": "Karta orqali to'lov hozircha mavjud emas. Naxd to'lovni tanlang.",
+  "err.pay_required": "Avval to'lovni amalga oshiring",
+  "err.bad_card_number": "Karta raqami 16 ta raqamdan iborat bo'lsin",
+  "admin.payCheck": "Mijoz {sum} so'm o'tkazdim deydi — kartangizni tekshiring",
+  "admin.payConfirm": "To'lov tushdi, tayyorlash",
+  "admin.tab.settings": "Sozlamalar",
+  "admin.set.hint": "Mijozlar karta bilan to'laganda shu karta ko'rsatiladi. Karta raqami kiritilmasa, faqat naxd to'lov ishlaydi.",
+  "admin.set.card": "To'lov kartasi",
+  "admin.set.number": "Karta raqami (16 xonali)",
+  "admin.set.type": "Karta turi",
+  "admin.set.holder": "Karta egasi (ixtiyoriy)",
+  "admin.set.note": "Faqat o'zingizning kartangiz raqamini kiriting. Buyurtma 'To'lov tekshirilmoqda' holatida keladi — pul kartangizga tushganini ko'rgach «To'lov tushdi» tugmasini bosing.",
+  "admin.set.saved": "Saqlandi",
+  "map.accuracy": "Aniqlik: ±{m} m",
+  "map.weak": "Joylashuv aniq emas (±{m} m). Telefonda GPS yoqing yoki pinni to'g'ri joyga suring.",
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 };

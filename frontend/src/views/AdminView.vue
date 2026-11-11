@@ -13,7 +13,7 @@ import LangSwitch from '../components/LangSwitch.vue';
 const theme = useThemeStore();
 const notify = useNotifyStore();
 const KEY = 'avz_admin';
-const STATUSES = ['new', 'cooking', 'delivering', 'done', 'cancelled'];
+const STATUSES = ['awaiting_payment', 'new', 'cooking', 'delivering', 'done', 'cancelled'];
 
 const password = ref('');
 const authed = ref(false);
@@ -71,7 +71,11 @@ async function login() {
     sessionStorage.setItem(KEY, password.value);
     authed.value = true;
     categories.value = await api.categories();
+<<<<<<< HEAD
     await Promise.all([loadOrders(), loadProducts(), loadPromos(), loadCodes()]);
+=======
+    await Promise.all([loadOrders(), loadProducts(), loadPromos(), loadCodes(), loadSettings()]);
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
     clearInterval(timer);
     timer = setInterval(poll, 8000);
     initNotifications();
@@ -124,7 +128,7 @@ async function setStatus(o, status) {
     fail(e);
   }
 }
-const newCount = computed(() => orders.value.filter((o) => o.status === 'new').length);
+const newCount = computed(() => orders.value.filter((o) => o.status === 'new' || o.status === 'awaiting_payment').length);
 const shownOrders = computed(() =>
   filter.value === 'all' ? orders.value : orders.value.filter((o) => !['done', 'cancelled'].includes(o.status))
 );
@@ -326,6 +330,28 @@ async function copyCode(c) {
 const mapLink = (o) => `https://www.openstreetmap.org/?mlat=${o.lat}&mlon=${o.lng}#map=18/${o.lat}/${o.lng}`;
 const payText = (o) => (o.payMethod === 'card' ? `${t('pay.card')} · ${o.payCard === 'humo' ? 'Humo' : 'Uzcard'}` : t('pay.cash'));
 
+<<<<<<< HEAD
+=======
+// ---------- Sozlamalar ----------
+const sform = reactive({ cardNumber: '', cardHolder: '', cardType: 'uzcard' });
+const fmtCard = (v) => v.replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 ');
+async function loadSettings() {
+  const r = await api.adminSettings(password.value);
+  Object.assign(sform, { ...r, cardNumber: fmtCard(r.cardNumber) });
+}
+async function saveSettings() {
+  busy.value = true;
+  try {
+    await api.adminSaveSettings(password.value, sform);
+    flash(t('admin.set.saved'));
+  } catch (e) {
+    fail(e);
+  } finally {
+    busy.value = false;
+  }
+}
+
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 const onPush = () => poll();
 onMounted(() => {
   window.addEventListener('avz:push', onPush);
@@ -402,6 +428,12 @@ onUnmounted(() => {
           <button class="btn small" :class="{ ghost: tab !== 'codes' }" role="tab" @click="tab = 'codes'">
             <AppIcon name="ticket" :size="18" />{{ $t('admin.tab.codes') }}
           </button>
+<<<<<<< HEAD
+=======
+          <button class="btn small" :class="{ ghost: tab !== 'settings' }" role="tab" @click="tab = 'settings'">
+            <AppIcon name="card" :size="18" />{{ $t('admin.tab.settings') }}
+          </button>
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
         </div>
 
         <!-- ===== Buyurtmalar ===== -->
@@ -412,7 +444,7 @@ onUnmounted(() => {
           </div>
           <div class="list">
             <p v-if="!shownOrders.length" class="muted">{{ $t('admin.noOrders') }}</p>
-            <article v-for="o in shownOrders" :key="o.id" class="card" :class="{ fresh: o.status === 'new' }">
+            <article v-for="o in shownOrders" :key="o.id" class="card" :class="{ fresh: o.status === 'new' || o.status === 'awaiting_payment' }">
               <header>
                 <b>#{{ o.id }} · {{ o.name }}</b>
                 <span class="price">{{ money(o.total) }} {{ $t('som') }}</span>
@@ -432,9 +464,13 @@ onUnmounted(() => {
               </p>
               <ul><li v-for="l in o.items" :key="l.productId">{{ l.qty }} × {{ loc(l.names, l.name) }}<small v-if="l.basePrice && l.basePrice > l.price" class="muted"> · {{ $t('promo.applied') }}</small></li></ul>
               <p v-if="o.comment" class="muted">{{ $t('admin.comment', { c: o.comment }) }}</p>
+              <div v-if="o.status === 'awaiting_payment'" class="payalert">
+                <span><AppIcon name="card" :size="18" />{{ $t('admin.payCheck', { sum: money(o.total) }) }}</span>
+                <button class="btn small" @click="setStatus(o, 'cooking')"><AppIcon name="check" :size="16" />{{ $t('admin.payConfirm') }}</button>
+              </div>
               <div class="statuses" role="group" :aria-label="$t('admin.setStatus')">
                 <template v-for="s in STATUSES" :key="s">
-                  <button v-if="s !== 'delivering' || o.type === 'delivery'" class="btn small" :class="[{ ghost: o.status !== s }, 'st-' + s]" @click="setStatus(o, s)">{{ label(s) }}</button>
+                  <button v-if="(s !== 'delivering' || o.type === 'delivery') && (s !== 'awaiting_payment' || o.payMethod === 'card')" class="btn small" :class="[{ ghost: o.status !== s }, 'st-' + s]" @click="setStatus(o, s)">{{ label(s) }}</button>
                 </template>
               </div>
             </article>
@@ -544,7 +580,11 @@ onUnmounted(() => {
         </section>
 
         <!-- ===== Promokodlar ===== -->
+<<<<<<< HEAD
         <section v-else>
+=======
+        <section v-else-if="tab === 'codes'">
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
           <p class="muted hint">{{ $t('admin.code.hint') }}</p>
           <form class="card pform" @submit.prevent="addCode">
             <h2 class="display">{{ $t('admin.code.new') }}</h2>
@@ -589,6 +629,27 @@ onUnmounted(() => {
             </article>
           </div>
         </section>
+<<<<<<< HEAD
+=======
+
+        <!-- ===== Sozlamalar ===== -->
+        <section v-else>
+          <p class="muted hint">{{ $t('admin.set.hint') }}</p>
+          <form class="card pform" @submit.prevent="saveSettings">
+            <h2 class="display">{{ $t('admin.set.card') }}</h2>
+            <div class="grid2">
+              <div class="field"><label>{{ $t('admin.set.number') }}</label><input v-model="sform.cardNumber" inputmode="numeric" autocomplete="off" maxlength="23" placeholder="8600 0000 0000 0000" @input="sform.cardNumber = fmtCard(sform.cardNumber)" /></div>
+              <div class="field">
+                <label>{{ $t('admin.set.type') }}</label>
+                <select v-model="sform.cardType"><option value="uzcard">Uzcard</option><option value="humo">Humo</option></select>
+              </div>
+              <div class="field"><label>{{ $t('admin.set.holder') }}</label><input v-model.trim="sform.cardHolder" maxlength="60" autocomplete="off" /></div>
+            </div>
+            <p class="muted small-note">{{ $t('admin.set.note') }}</p>
+            <div class="actions"><button class="btn" :disabled="busy"><AppIcon name="check" :size="18" />{{ $t('admin.p.save') }}</button></div>
+          </form>
+        </section>
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
       </template>
     </div>
   </div>
@@ -631,6 +692,10 @@ ul { margin: 8px 0 8px 20px; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .preview-line { display: flex; gap: 10px; align-items: flex-start; background: var(--glow); border: 1px dashed var(--green); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; svg { color: var(--green-bright); margin-top: 3px; } }
 .hint { margin-bottom: 12px; }
+<<<<<<< HEAD
+=======
+.payalert { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--glow); border: 1px dashed var(--green-bright); span { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; } }
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 .maplink { display: inline-flex; align-items: center; gap: 6px; color: var(--green-bright); font-weight: 600; text-decoration: underline; }
 .paymeta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .codetag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; border: 1px dashed var(--green-bright); color: var(--green-bright); font-weight: 600; font-size: 0.85rem; }

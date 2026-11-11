@@ -12,7 +12,8 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'avazbek123';
 const DELIVERY_FEE = brand.deliveryFee;
-const STATUSES = ['new', 'cooking', 'delivering', 'done', 'cancelled'];
+// awaiting_payment: mijoz kartaga o'tkazdim degan, admin to'lovni tekshirguncha kutiladigan buyurtma
+const STATUSES = ['awaiting_payment', 'new', 'cooking', 'delivering', 'done', 'cancelled'];
 const LANGS = ['uz', 'ru', 'en'];
 const PAY_CARDS = ['uzcard', 'humo']; // O'zbekiston kartalari
 
@@ -71,7 +72,15 @@ function unitPrice(product, qty, promos) {
 }
 
 // ---------- Ochiq API ----------
-app.get('/api/brand', (_req, res) => res.json(brand));
+// Do'konning to'lov kartasi (admin sozlamalarda kiritadi)
+async function getPayCard() {
+  const { rows } = await q("select key, value from settings where key like 'pay_card_%'");
+  const m = Object.fromEntries(rows.map((r) => [r.key, typeof r.value === 'string' ? r.value : ''])); // settings.value — jsonb
+  const number = (m.pay_card_number || '').replace(/\D/g, '');
+  if (number.length !== 16) return null;
+  return { number, holder: m.pay_card_holder || '', type: PAY_CARDS.includes(m.pay_card_type) ? m.pay_card_type : 'uzcard' };
+}
+app.get('/api/brand', ah(async (_req, res) => res.json({ ...brand, payCard: await getPayCard() })));
 app.get('/api/categories', (_req, res) => res.json(categories));
 
 app.get('/api/products', ah(async (req, res) => {
@@ -169,7 +178,11 @@ app.post('/api/promo-codes/check', rateLimit(40, 10 * 60_000), ah(async (req, re
 }));
 
 app.post('/api/orders', rateLimit(60, 10 * 60_000), ah(async (req, res) => {
+<<<<<<< HEAD
   const { name, phone, address, comment, type, items, lang, push, lat, lng, payMethod, payCard, promoCode } = req.body || {};
+=======
+  const { name, phone, address, comment, type, items, lang, push, lat, lng, payMethod, promoCode, paid } = req.body || {};
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   if (!name || !phone) return fail(res, 400, 'name_phone', 'Ism va telefon kerak');
   const delivery = type === 'delivery';
 
@@ -180,7 +193,15 @@ app.post('/api/orders', rateLimit(60, 10 * 60_000), ah(async (req, res) => {
     return fail(res, 400, 'location', 'Xaritadan manzilni belgilang');
   }
   if (!['cash', 'card'].includes(payMethod)) return fail(res, 400, 'bad_pay', "To'lov usulini tanlang");
+<<<<<<< HEAD
   if (payMethod === 'card' && !PAY_CARDS.includes(payCard)) return fail(res, 400, 'bad_pay', "Karta turini tanlang");
+=======
+  // Karta bilan to'lovda buyurtma faqat mijoz do'kon kartasiga o'tkazganini tasdiqlagandan keyin yaratiladi;
+  // admin pul tushganini tekshirib tasdiqlamaguncha u oshxonaga o'tmaydi.
+  const shopCard = payMethod === 'card' ? await getPayCard() : null;
+  if (payMethod === 'card' && !shopCard) return fail(res, 400, 'no_card', "Karta orqali to'lov hozircha mavjud emas");
+  if (payMethod === 'card' && paid !== true) return fail(res, 400, 'pay_required', "Avval to'lovni amalga oshiring");
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 
   const { lines, subtotal } = await priceLines(items);
   const fee = delivery ? DELIVERY_FEE : 0;
@@ -205,8 +226,13 @@ app.post('/api/orders', rateLimit(60, 10 * 60_000), ah(async (req, res) => {
     const addr = delivery ? String(address || '').trim().slice(0, 200) || `${la.toFixed(5)}, ${ln.toFixed(5)}` : '';
     const ins = await client.query(
       `insert into orders(token, name, phone, address, comment, type, lang, push, items, subtotal, delivery_fee, total,
+<<<<<<< HEAD
                           lat, lng, pay_method, pay_card, promo_code, code_discount)
        values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18) returning *`,
+=======
+                          lat, lng, pay_method, pay_card, promo_code, code_discount, status)
+       values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) returning *`,
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
       [
         crypto.randomBytes(12).toString('hex'),
         String(name).slice(0, 80),
@@ -223,9 +249,16 @@ app.post('/api/orders', rateLimit(60, 10 * 60_000), ah(async (req, res) => {
         delivery ? la : null,
         delivery ? ln : null,
         payMethod,
+<<<<<<< HEAD
         payMethod === 'card' ? payCard : '',
         usedCode,
         discount,
+=======
+        shopCard ? shopCard.type : '',
+        usedCode,
+        discount,
+        shopCard ? 'awaiting_payment' : 'new',
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
       ]
     );
     order = toOrder(ins.rows[0]);
@@ -239,7 +272,7 @@ app.post('/api/orders', rateLimit(60, 10 * 60_000), ah(async (req, res) => {
   }
 
   notifyAdmins({
-    title: `🛎 Yangi buyurtma #${order.id}`,
+    title: order.status === 'awaiting_payment' ? `💳 To'lovni tekshiring #${order.id}` : `🛎 Yangi buyurtma #${order.id}`,
     body: `${order.name} · ${new Intl.NumberFormat('ru-RU').format(order.total)} so'm`,
     url: '/admin',
     tag: `new-order-${order.id}`,
@@ -320,6 +353,22 @@ app.patch('/api/admin/orders/:id', adminOnly, ah(async (req, res) => {
     if (payload) notifyCustomer(order, payload).catch(() => {});
   }
   res.json(adminOrder(order));
+}));
+
+// --- Sozlamalar (to'lov kartasi) ---
+app.get('/api/admin/settings', adminOnly, ah(async (_req, res) => {
+  const c = await getPayCard();
+  res.json({ cardNumber: c?.number || '', cardHolder: c?.holder || '', cardType: c?.type || 'uzcard' });
+}));
+app.put('/api/admin/settings', adminOnly, ah(async (req, res) => {
+  const number = String(req.body?.cardNumber ?? '').replace(/\D/g, '');
+  if (number && number.length !== 16) throw new Biz(400, 'bad_card_number', "Karta raqami 16 ta raqamdan iborat bo'lsin");
+  const type = PAY_CARDS.includes(req.body?.cardType) ? req.body.cardType : 'uzcard';
+  const holder = String(req.body?.cardHolder ?? '').trim().slice(0, 60);
+  for (const [k, v] of [['pay_card_number', number], ['pay_card_holder', holder], ['pay_card_type', type]]) {
+    await q('insert into settings(key, value) values($1, $2::jsonb) on conflict (key) do update set value = excluded.value', [k, JSON.stringify(v)]);
+  }
+  res.json({ cardNumber: number, cardHolder: holder, cardType: type });
 }));
 
 // --- Mahsulotlar ---

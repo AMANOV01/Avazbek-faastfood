@@ -21,6 +21,13 @@ const resolving = ref(false);
 let map;
 let marker;
 let geoAbort;
+<<<<<<< HEAD
+=======
+let watchId = null;
+let stopTimer;
+let circle = null;
+const accuracy = ref(null);
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 
 // Rasm fayllarisiz chiziladigan pin (bundler bilan Leaflet standart ikonkalari muammo qiladi)
 const pinIcon = L.divIcon({
@@ -53,29 +60,62 @@ async function resolve(lat, lng) {
   emit('update:modelValue', { lat, lng, address: address.value });
 }
 
+<<<<<<< HEAD
 function place(lat, lng, { zoom } = {}) {
+=======
+function setAccuracy(m) {
+  accuracy.value = m ?? null;
+  if (circle) { circle.remove(); circle = null; }
+  if (m) circle = L.circle([marker.getLatLng().lat, marker.getLatLng().lng], { radius: m, weight: 1, color: '#1d6fd1', fillOpacity: 0.12, interactive: false }).addTo(map);
+}
+
+function place(lat, lng, { zoom, acc, geocode = true } = {}) {
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   note.value = '';
   if (!marker) {
     marker = L.marker([lat, lng], { icon: pinIcon, draggable: true, keyboard: false }).addTo(map);
     marker.on('dragend', () => {
       const p = marker.getLatLng();
+<<<<<<< HEAD
       place(p.lat, p.lng);
+=======
+      place(p.lat, p.lng); // qo'lda surilsa — bu endi aniq joy, aniqlik doirasi kerak emas
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
     });
   } else {
     marker.setLatLng([lat, lng]);
   }
+<<<<<<< HEAD
+=======
+  setAccuracy(acc);
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   if (zoom) map.setView([lat, lng], zoom);
   else map.panTo([lat, lng]);
   // Manzil topilguncha koordinatalarni darhol yuboramiz: tugma bosilgach "manzil yo'q" bo'lib qolmasin
   emit('update:modelValue', { lat, lng, address: `${fmt(lat)}, ${fmt(lng)}` });
+<<<<<<< HEAD
   resolve(lat, lng);
 }
 
+=======
+  if (geocode) resolve(lat, lng);
+}
+
+// Qurilma joylashuvi: birinchi javob ko'pincha taxminiy (Wi-Fi/IP) bo'ladi, shuning uchun GPS aniqlashguncha
+// (±25 m) yoki 15 soniya kuzatamiz va eng aniq natijani olamiz.
+function stopWatch() {
+  if (watchId != null) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  clearTimeout(stopTimer);
+  locating.value = false;
+}
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 function locate() {
   if (!('geolocation' in navigator)) {
     note.value = t('map.unsupported');
     return;
   }
+<<<<<<< HEAD
   locating.value = true;
   note.value = '';
   navigator.geolocation.getCurrentPosition(
@@ -89,6 +129,34 @@ function locate() {
     },
     { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
   );
+=======
+  stopWatch();
+  locating.value = true;
+  note.value = '';
+  let best = null;
+  const finish = () => {
+    stopWatch();
+    if (best) place(best.lat, best.lng, { zoom: 18, acc: best.acc });
+    else if (!note.value) note.value = t('map.unavailable');
+  };
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
+      if (!best || acc < best.acc) {
+        best = { lat, lng, acc: Math.round(acc) };
+        place(lat, lng, { zoom: acc < 200 ? 18 : 16, acc: best.acc, geocode: false });
+      }
+      if (acc <= 25) finish();
+    },
+    (err) => {
+      if (best) return finish();
+      stopWatch();
+      note.value = t(err.code === 1 ? 'map.denied' : 'map.unavailable');
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+  );
+  stopTimer = setTimeout(finish, 15000);
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 }
 
 onMounted(() => {
@@ -102,6 +170,10 @@ onMounted(() => {
   if (props.modelValue) place(props.modelValue.lat, props.modelValue.lng, { zoom: 17 });
 });
 onBeforeUnmount(() => {
+<<<<<<< HEAD
+=======
+  stopWatch();
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
   geoAbort?.abort();
   map?.remove();
 });
@@ -117,6 +189,12 @@ onBeforeUnmount(() => {
     </div>
     <div ref="el" class="map" role="application" :aria-label="$t('map.label')"></div>
     <p v-if="note" class="error">{{ note }}</p>
+<<<<<<< HEAD
+=======
+    <p v-else-if="accuracy" class="acc" :class="{ weak: accuracy > 150 }">
+      {{ accuracy > 150 ? $t('map.weak', { m: accuracy }) : $t('map.accuracy', { m: accuracy }) }}
+    </p>
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
     <p v-if="modelValue" class="chosen">
       <AppIcon name="pin" :size="18" />
       <span>{{ resolving ? $t('map.resolving') : address }}</span>
@@ -130,6 +208,10 @@ onBeforeUnmount(() => {
 .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .help { font-size: 0.82rem; flex: 1; min-width: 160px; }
 .map { height: 300px; border-radius: 12px; border: 1px solid var(--line); overflow: hidden; z-index: 0; touch-action: pan-x pan-y; }
+<<<<<<< HEAD
+=======
+.acc { font-size: 0.82rem; color: var(--muted); &.weak { color: var(--danger); font-weight: 600; } }
+>>>>>>> 59b5c6d (v6, kartali tolov upgrade, design)
 .chosen { display: flex; gap: 8px; align-items: flex-start; font-size: 0.92rem; color: var(--text); svg { color: var(--green-bright); margin-top: 2px; } &.none { font-style: italic; } }
 @media (max-width: 480px) { .map { height: 260px; } }
 </style>
